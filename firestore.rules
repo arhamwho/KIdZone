@@ -1,0 +1,154 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // KidZone family rules.
+    // Parents can manage their own family. Children can read family data
+    // that belongs to them, complete their own activities, and write their
+    // own location / usage / game progress. Roles and family membership
+    // cannot be arbitrarily rewritten.
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isSelf(uid) {
+      return signedIn() && request.auth.uid == uid;
+    }
+
+    function currentUser() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function userExists() {
+      return signedIn()
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+
+    function isParent() {
+      return userExists() && currentUser().role == 'parent';
+    }
+
+    function isChild() {
+      return userExists() && currentUser().role == 'child';
+    }
+
+    function belongsToFamily(familyId) {
+      return userExists() && currentUser().familyId == familyId;
+    }
+
+    function roleUnchanged() {
+      return request.resource.data.role == resource.data.role;
+    }
+
+    function familyUnchanged() {
+      return request.resource.data.familyId == resource.data.familyId;
+    }
+
+    function claimingOwnFamily() {
+      return resource.data.role == 'parent'
+        && request.resource.data.familyId is string
+        && exists(/databases/$(database)/documents/families/$(request.resource.data.familyId))
+        && get(/databases/$(database)/documents/families/$(request.resource.data.familyId)).data.parentId
+            == request.auth.uid;
+    }
+
+    match /users/{uid} {
+      allow read: if isSelf(uid)
+        || (userExists() && resource.data.familyId == currentUser().familyId);
+
+      allow create: if isSelf(uid)
+        && request.resource.data.uid == uid
+        && request.resource.data.role in ['parent', 'child']
+        || (isParent()
+            && request.resource.data.role == 'child'
+            && request.resource.data.familyId == currentUser().familyId
+            && request.resource.data.uid == uid);
+
+      allow update: if (isSelf(uid)
+            && roleUnchanged()
+            && (familyUnchanged() || claimingOwnFamily()))
+        || (isParent()
+            && resource.data.familyId == currentUser().familyId
+            && roleUnchanged()
+            && familyUnchanged()
+            && request.resource.data.uid == resource.data.uid);
+    }
+
+    match /families/{familyId} {
+      allow read: if belongsToFamily(familyId)
+        || (signedIn() && resource.data.parentId == request.auth.uid);
+
+      allow create: if signedIn()
+        && request.resource.data.parentId == request.auth.uid
+        && request.resource.data.familyId == familyId;
+
+      allow update: if isParent() && belongsToFamily(familyId)
+        && request.resource.data.parentId == resource.data.parentId
+        && request.resource.data.familyId == resource.data.familyId;
+
+      match /children/{childId} {
+        allow read: if belongsToFamily(familyId)
+          || (signedIn()
+              && get(/databases/$(database)/documents/families/$(familyId)).data.parentId
+                  == request.auth.uid);
+
+        allow create, update: if isParent()
+          && belongsToFamily(familyId)
+          && request.resource.data.familyId == familyId
+          && request.resource.data.role == 'child'
+          && request.resource.data.uid == childId;
+      }
+
+      match /activities/{activityId} {
+        allow read: if belongsToFamily(familyId);
+
+        allow create: if isParent()
+          && belongsToFamily(familyId)
+          && request.resource.data.createdBy == request.auth.uid;
+
+        allow update: if (isParent() && belongsToFamily(familyId))
+          || (isChild()
+              && resource.data.childId == request.auth.uid
+              && request.resource.data.diff(resource.data).affectedKeys()
+                  .hasOnly(['completed']));
+      }
+
+      match /locations/{locationId} {
+        allow read: if belongsToFamily(familyId);
+
+        allow create: if isChild()
+          && belongsToFamily(familyId)
+          && request.resource.data.childId == request.auth.uid;
+
+        allow delete: if isChild()
+          && belongsToFamily(familyId)
+          && resource.data.childId == request.auth.uid;
+      }
+
+      match /screenTime/{recordId} {
+        allow read: if belongsToFamily(familyId);
+
+        allow create, update: if isChild()
+          && belongsToFamily(familyId)
+          && request.resource.data.childId == request.auth.uid;
+      }
+
+      match /gameProgress/{progressId} {
+        allow read: if belongsToFamily(familyId);
+
+        allow create, update: if isChild()
+          && belongsToFamily(familyId)
+          && request.resource.data.childId == request.auth.uid;
+      }
+
+      match /points/{childId} {
+        allow read: if belongsToFamily(familyId);
+
+        allow create, update: if isChild()
+          && belongsToFamily(familyId)
+          && request.auth.uid == childId
+          && request.resource.data.childId == request.auth.uid;
+      }
+    }
+  }
+}

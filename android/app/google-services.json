@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "221954527642",
+    "project_id": "kidzone-56c7d",
+    "storage_bucket": "kidzone-56c7d.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:221954527642:android:caff0919d7aa6c89c66a23",
+        "android_client_info": {
+          "package_name": "com.kidzone.kidzone"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBiJEUE1WC3bcd6iHzwuVM6NH-M9-g4mmg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

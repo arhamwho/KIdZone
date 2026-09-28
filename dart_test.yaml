@@ -1,0 +1,6 @@
+tags:
+  # Golden-image previews of the design system. Skipped by default because the
+  # images change whenever the visuals are tweaked. Regenerate them with:
+  #   flutter test --tags preview --update-goldens
+  preview:
+    skip: "Run with: flutter test --tags preview --update-goldens"
