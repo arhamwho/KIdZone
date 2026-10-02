@@ -33,7 +33,7 @@ enum ActivityType {
     ActivityType.exercise => AppColors.mint,
     ActivityType.meal => AppColors.sunshine,
     ActivityType.sleep => AppColors.lavender,
-    ActivityType.learning => AppColors.peach,
+    ActivityType.learning => AppColors.lavender,
     ActivityType.other => AppColors.blush,
   };
 

@@ -7,6 +7,7 @@ import '../../theme/app_colors.dart';
 import '../../theme/app_spacing.dart';
 import '../../widgets/family_gate.dart';
 import '../../widgets/kid_card.dart';
+import '../../widgets/page_header.dart';
 import '../../widgets/progress_ring.dart';
 
 class AchievementsScreen extends StatelessWidget {
@@ -15,7 +16,7 @@ class AchievementsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return FamilyGate(
-      title: 'Progress',
+      title: '',
       tint: UserRole.child.tint,
       builder: (BuildContext context, FamilyScope scope) {
         return StreamBuilder<PointsModel>(
@@ -27,21 +28,26 @@ class AchievementsScreen extends StatelessWidget {
             final PointsModel points =
                 snap.data ?? PointsModel.empty(scope.user.uid);
             return ListView(
-              padding: const EdgeInsets.only(bottom: AppSpacing.xxl),
+              padding: const EdgeInsets.only(bottom: AppSpacing.navClearance),
               children: <Widget>[
+                AppTopBar(
+                  title: 'Progress',
+                  subtitle: 'Level ${points.level} · ${points.points} pts',
+                ),
+                const SizedBox(height: AppSpacing.sm),
                 KidCard(
                   child: Row(
                     children: <Widget>[
                       ProgressRing(
-                        value: (points.points % 50) / 50,
+                        value: (points.points % 100) / 100,
                         label: '${points.points}',
                         caption: 'pts',
                         color: UserRole.child.accent,
                       ),
                       const SizedBox(width: AppSpacing.lg),
-                      Expanded(
+                      const Expanded(
                         child: Text(
-                          'Level ${points.level}\nKeep playing and finishing activities to earn more.',
+                          'Keep playing and finishing activities to earn more.',
                         ),
                       ),
                     ],

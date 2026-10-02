@@ -1,83 +1,67 @@
 import 'package:flutter/material.dart';
 
-/// KidZone's pastel palette.
-///
-/// The system pairs a deep terracotta for anything interactive or text-bearing
-/// with soft peach, blush and cream for surfaces and decoration. That split
-/// keeps the app warm and playful while still clearing WCAG AA contrast —
-/// pastels are used for fills, never for text on light backgrounds.
+/// Visual system matched to the family-monitor reference: airy blue canvas,
+/// saturated feature tiles, and navy type.
 class AppColors {
   const AppColors._();
 
-  // ---------------------------------------------------------------- Brand
-  /// Primary interactive colour. White text on this clears 4.7:1.
-  static const Color primary = Color(0xFFC44C39);
+  static const Color primary = Color(0xFF4B8BFF);
+  static const Color primarySoft = Color(0xFF8BB4FF);
 
-  /// Soft peach used for tinted fills, badges and illustration shapes.
-  static const Color primarySoft = Color(0xFFF4A48F);
+  static const Color peach = Color(0xFFFFE0C2);
+  static const Color blush = Color(0xFFFFD6DE);
+  static const Color sunshine = Color(0xFFF5C044);
+  static const Color mint = Color(0xFF2ECF9A);
+  static const Color sky = Color(0xFF5B9BFF);
+  static const Color lavender = Color(0xFF7B6EFF);
 
-  // ------------------------------------------------------------- Pastels
-  static const Color peach = Color(0xFFFBC4A8);
-  static const Color blush = Color(0xFFF6B8BE);
-  static const Color sunshine = Color(0xFFF3C969);
-  static const Color mint = Color(0xFF7CC6AE);
-  static const Color sky = Color(0xFF8CB6E8);
-  static const Color lavender = Color(0xFFB7A8E0);
+  static const Color mintInk = Color(0xFF0F7A58);
+  static const Color skyInk = Color(0xFF1E4F9A);
+  static const Color sunshineInk = Color(0xFF8A5A00);
+  static const Color lavenderInk = Color(0xFF3F338F);
 
-  // Darker partners of the pastels above, for icons and text that sit on top
-  // of them. Pastels are never used for text on a light background.
-  static const Color mintInk = Color(0xFF2F7A63);
-  static const Color skyInk = Color(0xFF3B6FA8);
-  static const Color sunshineInk = Color(0xFF96701A);
-  static const Color lavenderInk = Color(0xFF6A5AA8);
+  static const Color parentAccent = Color(0xFF4B8BFF);
+  static const Color childAccent = Color(0xFF7B6EFF);
 
-  // --------------------------------------------------------- Role accents
-  /// Parent side leans calm and informative.
-  static const Color parentAccent = Color(0xFF4A7FC1);
+  static const Color tileBlue = Color(0xFF5B9BFF);
+  static const Color tileOrange = Color(0xFFF5C044);
+  static const Color tilePurple = Color(0xFF7B6EFF);
+  static const Color tileGreen = Color(0xFF2ECF9A);
 
-  /// Child side uses the warm brand colour.
-  static const Color childAccent = Color(0xFFC44C39);
+  static const Color success = Color(0xFF2ECF9A);
+  static const Color warning = Color(0xFFF5C044);
+  static const Color danger = Color(0xFFE0565B);
+  static const Color info = Color(0xFF4B8BFF);
 
-  // -------------------------------------------------------------- Status
-  static const Color success = Color(0xFF3F8F63);
-  static const Color warning = Color(0xFFC9861E);
-  static const Color danger = Color(0xFFC0453C);
-  static const Color info = Color(0xFF4A7FC1);
-
-  // ------------------------------------------------------ Neutrals (light)
-  static const Color cream = Color(0xFFFFF8F2);
-  static const Color sand = Color(0xFFFDEDE1);
+  static const Color cream = Color(0xFFEAF3FC);
+  static const Color sand = Color(0xFFD7E6F6);
   static const Color surface = Color(0xFFFFFFFF);
-  static const Color outline = Color(0xFFF0DFD2);
-  static const Color ink = Color(0xFF3B2B26);
-  static const Color inkSoft = Color(0xFF7C6A62);
+  static const Color outline = Color(0xFFE4EDF6);
+  static const Color ink = Color(0xFF1C2B4A);
+  static const Color inkSoft = Color(0xFF7A8699);
 
-  // ------------------------------------------------------- Neutrals (dark)
-  static const Color creamDark = Color(0xFF1E1A19);
-  static const Color surfaceDark = Color(0xFF2A2422);
-  static const Color outlineDark = Color(0xFF453B37);
-  static const Color inkDark = Color(0xFFF4EAE4);
-  static const Color inkSoftDark = Color(0xFFBCAAA2);
+  static const Color creamDark = Color(0xFF121826);
+  static const Color surfaceDark = Color(0xFF1C2433);
+  static const Color outlineDark = Color(0xFF334056);
+  static const Color inkDark = Color(0xFFF3F7FC);
+  static const Color inkSoftDark = Color(0xFFB3BCC9);
 
-  /// Soft fills used to colour-code subjects, activity types and game tiles.
   static const List<Color> categoryPalette = <Color>[
+    tileBlue,
+    tileOrange,
+    tilePurple,
+    tileGreen,
     peach,
     blush,
-    sunshine,
-    mint,
-    sky,
-    lavender,
   ];
 
-  /// Darker partners of [categoryPalette], safe to use for text and icons
-  /// sitting on top of the matching pastel fill.
   static const List<Color> categoryInkPalette = <Color>[
+    Color(0xFF1E4F9A),
+    Color(0xFF8A5A00),
+    Color(0xFF3F338F),
+    Color(0xFF0F7A58),
     Color(0xFFB25A32),
     Color(0xFFB04A57),
-    Color(0xFF96701A),
-    Color(0xFF2F7A63),
-    Color(0xFF3B6FA8),
-    Color(0xFF6A5AA8),
   ];
 
   static Color categoryAt(int index) =>
@@ -85,4 +69,14 @@ class AppColors {
 
   static Color categoryInkAt(int index) =>
       categoryInkPalette[index.abs() % categoryInkPalette.length];
+
+  static Color avatarColor(String key) {
+    const List<Color> colors = <Color>[
+      tileBlue,
+      tileOrange,
+      tilePurple,
+      tileGreen,
+    ];
+    return colors[key.hashCode.abs() % colors.length];
+  }
 }

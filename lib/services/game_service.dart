@@ -7,6 +7,22 @@ import '../models/points_model.dart';
 import 'firestore_errors.dart';
 import 'firestore_service.dart';
 
+class QuizSaveResult {
+  const QuizSaveResult({
+    required this.awardedPoints,
+    required this.bestScore,
+    required this.score,
+    required this.maxScore,
+  });
+
+  final int awardedPoints;
+  final int bestScore;
+  final int score;
+  final int maxScore;
+
+  bool get perfect => maxScore > 0 && score == maxScore;
+}
+
 class GameService {
   GameService({FirestoreService? firestore})
     : _db = firestore ?? FirestoreService.instance;
@@ -71,7 +87,7 @@ class GameService {
         });
   }
 
-  Future<void> saveQuizResult({
+  Future<QuizSaveResult> saveQuizResult({
     required String familyId,
     required String childId,
     required String gameId,
@@ -85,6 +101,8 @@ class GameService {
           .gameProgress(familyId)
           .doc(progressId);
       final DocumentSnapshot<Map<String, dynamic>> existing = await doc.get();
+      final bool firstCompletion =
+          !existing.exists || !GameProgressModel.fromFirestore(existing).completed;
       final int previousBest = existing.exists
           ? GameProgressModel.fromFirestore(existing).bestScore
           : 0;
@@ -98,13 +116,31 @@ class GameService {
       );
       await doc.set(progress.toMap());
 
-      await awardPoints(
-        familyId: familyId,
-        childId: childId,
-        amount: perfect ? 30 : 20,
-        unlock: AchievementId.firstGame,
-      );
+      int awarded = 0;
+      if (firstCompletion) {
+        awarded = perfect ? 30 : 20;
+        await awardPoints(
+          familyId: familyId,
+          childId: childId,
+          amount: awarded,
+          unlock: AchievementId.firstGame,
+        );
+      }
+      if (perfect) {
+        await awardPoints(
+          familyId: familyId,
+          childId: childId,
+          amount: 0,
+          unlock: AchievementId.perfectQuiz,
+        );
+      }
       await _maybeUnlockLearningStar(familyId: familyId, childId: childId);
+      return QuizSaveResult(
+        awardedPoints: awarded,
+        bestScore: progress.bestScore,
+        score: score,
+        maxScore: maxScore,
+      );
     } catch (error) {
       if (error is FirestoreException) rethrow;
       throw FirestoreException(friendlyFirestoreMessage(error));
@@ -137,6 +173,10 @@ class GameService {
         if (nextPoints >= 100 &&
             !badges.contains(AchievementId.hundredPoints.firestoreValue)) {
           badges.add(AchievementId.hundredPoints.firestoreValue);
+        }
+        if (nextPoints >= 500 &&
+            !badges.contains(AchievementId.fiveHundredPoints.firestoreValue)) {
+          badges.add(AchievementId.fiveHundredPoints.firestoreValue);
         }
         final PointsModel next = PointsModel(
           childId: childId,

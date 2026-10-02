@@ -187,6 +187,7 @@ class FirestoreService {
     String? familyId,
     bool? locationSharingEnabled,
     int? dailyScreenLimitMinutes,
+    bool touchLastActive = false,
   }) async {
     try {
       final Map<String, dynamic> patch = <String, dynamic>{};
@@ -197,6 +198,9 @@ class FirestoreService {
       }
       if (dailyScreenLimitMinutes != null) {
         patch['dailyScreenLimitMinutes'] = dailyScreenLimitMinutes;
+      }
+      if (touchLastActive) {
+        patch['lastActiveAt'] = FieldValue.serverTimestamp();
       }
       if (patch.isEmpty) return;
       await _users.doc(uid).update(patch);
@@ -219,4 +223,18 @@ class FirestoreService {
 
   CollectionReference<Map<String, dynamic>> points(String familyId) =>
       _families.doc(familyId).collection('points');
+
+  CollectionReference<Map<String, dynamic>> wallets(String familyId) =>
+      _families.doc(familyId).collection('wallets');
+
+  CollectionReference<Map<String, dynamic>> walletTransactions({
+    required String familyId,
+    required String childId,
+  }) => wallets(familyId).doc(childId).collection('transactions');
+
+  CollectionReference<Map<String, dynamic>> messages(String familyId) =>
+      _families.doc(familyId).collection('messages');
+
+  CollectionReference<Map<String, dynamic>> reminders(String familyId) =>
+      _families.doc(familyId).collection('reminders');
 }

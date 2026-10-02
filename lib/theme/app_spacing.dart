@@ -23,6 +23,9 @@ class AppSpacing {
 
   /// Minimum height for tappable elements, per Material touch-target guidance.
   static const double minTapTarget = 48;
+
+  /// Extra space so lists clear the floating navigation bar.
+  static const double navClearance = 96;
 }
 
 /// Corner radii. KidZone is deliberately very rounded: pill-shaped buttons
@@ -32,7 +35,7 @@ class AppRadius {
 
   static const double sm = 12;
   static const double md = 18;
-  static const double lg = 24;
+  static const double lg = 28;
   static const double xl = 32;
   static const double pill = 999;
 }

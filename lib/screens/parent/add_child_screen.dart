@@ -59,7 +59,7 @@ class _AddChildScreenState extends State<AddChildScreen> {
         );
       }
 
-      final String childUid = await _childAccounts.createChildAuthAccount(
+      final ChildProvisionResult provision = await _childAccounts.provisionChild(
         email: _email.text,
         password: _password.text,
         name: _name.text,
@@ -71,12 +71,14 @@ class _AddChildScreenState extends State<AddChildScreen> {
         );
       }
 
-      await FirestoreService.instance.addChild(
-        familyId: familyId,
-        uid: childUid,
-        name: _name.text,
-        email: _email.text,
-      );
+      if (!provision.profileCreated) {
+        await FirestoreService.instance.addChild(
+          familyId: familyId,
+          uid: provision.uid,
+          name: _name.text,
+          email: _email.text,
+        );
+      }
 
       if (!mounted) return;
       Navigator.of(context).pop();

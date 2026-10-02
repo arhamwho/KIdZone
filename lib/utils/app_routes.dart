@@ -16,7 +16,10 @@ import '../screens/onboarding/onboarding_screen.dart';
 import '../screens/onboarding/splash_screen.dart';
 import '../screens/parent/add_child_screen.dart';
 import '../screens/parent/child_overview_screen.dart';
+import '../screens/messages/family_messages_screen.dart';
+import '../screens/money/pocket_money_screen.dart';
 import '../screens/parent/parent_shell.dart';
+import '../screens/reminders/reminders_screen.dart';
 import '../screens/screen_time/screen_time_monitor_screen.dart';
 
 /// Named routes for the whole app plus the generator used by `MaterialApp`.
@@ -41,6 +44,9 @@ class AppRoutes {
   static const String activityScheduler = '/parent/scheduler';
   static const String locationTracker = '/parent/location';
   static const String screenTimeMonitor = '/parent/screen-time';
+  static const String pocketMoney = '/family/pocket-money';
+  static const String familyMessages = '/family/messages';
+  static const String reminders = '/family/reminders';
 
   // Child — [childHome] is the bottom-navigation shell.
   static const String childHome = '/child';
@@ -68,6 +74,9 @@ class AppRoutes {
       activityScheduler => (_) => const ActivitySchedulerScreen(),
       locationTracker => (_) => const LocationTrackerScreen(),
       screenTimeMonitor => (_) => const ScreenTimeMonitorScreen(),
+      pocketMoney => (_) => const PocketMoneyScreen(),
+      familyMessages => (_) => const FamilyMessagesScreen(),
+      reminders => (_) => const RemindersScreen(),
       childHome => (_) => const ChildShell(),
       todaysActivities => (_) => const TodaysActivitiesScreen(),
       learningGames => (_) => const LearningGamesScreen(),

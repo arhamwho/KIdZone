@@ -51,7 +51,7 @@ class _SplashScreenState extends State<SplashScreen>
     // Widget tests pump the app without calling main(), so Firebase may not
     // be initialized. Treat that as logged out.
     if (Firebase.apps.isEmpty) {
-      Navigator.of(context).pushReplacementNamed(AppRoutes.login);
+      Navigator.of(context).pushReplacementNamed(AppRoutes.onboarding);
       return;
     }
 
@@ -69,7 +69,7 @@ class _SplashScreenState extends State<SplashScreen>
     }
 
     if (!mounted) return;
-    Navigator.of(context).pushReplacementNamed(AppRoutes.login);
+    Navigator.of(context).pushReplacementNamed(AppRoutes.onboarding);
   }
 
   @override

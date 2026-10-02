@@ -16,6 +16,8 @@ class ActivityModel {
     required this.completed,
     required this.createdBy,
     this.createdAt,
+    this.completedAt,
+    this.pointsAwarded = false,
   });
 
   final String activityId;
@@ -29,6 +31,8 @@ class ActivityModel {
   final bool completed;
   final String createdBy;
   final DateTime? createdAt;
+  final DateTime? completedAt;
+  final bool pointsAwarded;
 
   bool get isToday => isSameDay(scheduledDate, DateTime.now());
 
@@ -51,6 +55,8 @@ class ActivityModel {
       completed: data['completed'] as bool? ?? false,
       createdBy: data['createdBy'] as String? ?? '',
       createdAt: readDate(data['createdAt']),
+      completedAt: readDate(data['completedAt']),
+      pointsAwarded: data['pointsAwarded'] as bool? ?? false,
     );
   }
 
@@ -65,8 +71,10 @@ class ActivityModel {
       'startTime': startTime,
       'endTime': endTime,
       'completed': completed,
+      'pointsAwarded': pointsAwarded,
       'createdBy': createdBy,
       'createdAt': writeDate(isCreate: isCreate, existing: createdAt),
+      if (completedAt != null) 'completedAt': Timestamp.fromDate(completedAt!),
     };
   }
 }

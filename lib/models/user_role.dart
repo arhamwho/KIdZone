@@ -32,7 +32,7 @@ enum UserRole {
   /// Pastel partner of [accent], used for fills, blobs and illustrations.
   Color get tint => switch (this) {
     UserRole.parent => AppColors.sky,
-    UserRole.child => AppColors.peach,
+    UserRole.child => AppColors.mint,
   };
 
   /// Value stored in Firestore (`parent` / `child`).

@@ -20,6 +20,7 @@ class AppPage extends StatelessWidget {
     this.bottomBar,
     this.floatingActionButton,
     this.constrainWidth = true,
+    this.safeArea = true,
   });
 
   final Widget child;
@@ -31,8 +32,17 @@ class AppPage extends StatelessWidget {
   final Widget? bottomBar;
   final Widget? floatingActionButton;
 
-  /// Set to false for full-bleed content such as horizontal carousels.
+  /// Set to false for full-bleed content such as maps.
   final bool constrainWidth;
+
+  /// Set to false when the screen draws its own SafeArea (for example a map).
+  final bool safeArea;
+
+  bool get _hasAppBar {
+    final bool hasTitle = title != null && title!.isNotEmpty;
+    final bool hasActions = actions != null && actions!.isNotEmpty;
+    return hasTitle || hasActions || leading != null;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -45,12 +55,20 @@ class AppPage extends StatelessWidget {
       showDecorations: showDecorations,
       quiet: true,
       child: Scaffold(
-        backgroundColor: Colors.transparent,
-        appBar: title == null
-            ? null
-            : AppBar(title: Text(title!), actions: actions, leading: leading),
-        // The app bar already handles the status bar inset.
-        body: SafeArea(top: title == null ? true : false, child: body),
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+        appBar: _hasAppBar
+            ? AppBar(
+                title: title == null || title!.isEmpty ? null : Text(title!),
+                actions: actions,
+                leading: leading,
+              )
+            : null,
+        body: SafeArea(
+          top: safeArea && !_hasAppBar,
+          bottom: safeArea,
+          child: body,
+        ),
+        resizeToAvoidBottomInset: true,
         bottomNavigationBar: bottomBar,
         floatingActionButton: floatingActionButton,
       ),

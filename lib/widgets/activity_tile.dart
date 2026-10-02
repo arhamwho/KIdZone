@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../models/activity_model.dart';
+import '../theme/app_colors.dart';
 import '../theme/app_spacing.dart';
 import 'kid_card.dart';
 
@@ -23,14 +24,13 @@ class ActivityTile extends StatelessWidget {
     final ThemeData theme = Theme.of(context);
     return Padding(
       padding: const EdgeInsets.only(bottom: AppSpacing.md),
-      child: KidCard(
-        background: activity.type.tint.withValues(alpha: 0.22),
-        borderColor: Colors.transparent,
+        child: KidCard(
+        onTap: () => _showDetails(context),
         child: Row(
           children: <Widget>[
             CircleAvatar(
-              backgroundColor: theme.colorScheme.surface,
-              child: Icon(activity.type.icon, color: activity.type.ink),
+              backgroundColor: activity.type.tint,
+              child: Icon(activity.type.icon, color: Colors.white),
             ),
             const SizedBox(width: AppSpacing.md),
             Expanded(
@@ -68,14 +68,48 @@ class ActivityTile extends StatelessWidget {
               Icon(
                 activity.completed
                     ? Icons.check_circle_rounded
-                    : Icons.schedule_rounded,
+                    : Icons.chevron_right_rounded,
                 color: activity.completed
-                    ? activity.type.ink
+                    ? AppColors.tileGreen
                     : theme.colorScheme.onSurfaceVariant,
               ),
           ],
         ),
       ),
+    );
+  }
+
+  void _showDetails(BuildContext context) {
+    showModalBottomSheet<void>(
+      context: context,
+      builder: (BuildContext context) {
+        return Padding(
+          padding: const EdgeInsets.all(AppSpacing.lg),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Text(activity.title, style: Theme.of(context).textTheme.titleLarge),
+              const SizedBox(height: AppSpacing.sm),
+              Text(
+                '${activity.type.label} · ${activity.startTime}–${activity.endTime}',
+              ),
+              if (activity.description.isNotEmpty) ...<Widget>[
+                const SizedBox(height: AppSpacing.md),
+                Text(activity.description),
+              ],
+              const SizedBox(height: AppSpacing.md),
+              Text(
+                activity.completed
+                    ? 'Completed'
+                    : 'Not completed yet',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+              const SizedBox(height: AppSpacing.lg),
+            ],
+          ),
+        );
+      },
     );
   }
 }

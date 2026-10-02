@@ -21,24 +21,26 @@ class LocationService {
     : _db = firestore ?? FirestoreService.instance;
 
   static final LocationService instance = LocationService();
-  static const int _keepLast = 20;
+  static const Duration _minWriteGap = Duration(seconds: 8);
 
   final FirestoreService _db;
   StreamSubscription<Position>? _sub;
+  Timer? _pulse;
+  String? _familyId;
+  String? _childId;
+  DateTime? _lastWriteAt;
 
-  Stream<List<LocationModel>> watchLocations(String familyId) {
+  Stream<LocationModel?> watchLatestForChild({
+    required String familyId,
+    required String childId,
+  }) {
     return _db
         .locations(familyId)
+        .doc(childId)
         .snapshots()
-        .map((QuerySnapshot<Map<String, dynamic>> snapshot) {
-          final List<LocationModel> items = snapshot.docs
-              .map(LocationModel.fromFirestore)
-              .toList();
-          items.sort(
-            (LocationModel a, LocationModel b) =>
-                b.timestamp.compareTo(a.timestamp),
-          );
-          return items;
+        .map((DocumentSnapshot<Map<String, dynamic>> doc) {
+          if (!doc.exists) return null;
+          return LocationModel.fromFirestore(doc);
         })
         .handleError((Object error, StackTrace stackTrace) {
           Error.throwWithStackTrace(
@@ -48,16 +50,21 @@ class LocationService {
         });
   }
 
-  Stream<LocationModel?> watchLatestForChild({
+  Stream<List<LocationModel>> watchFamilyLocations({
     required String familyId,
-    required String childId,
   }) {
-    return watchLocations(familyId).map((List<LocationModel> items) {
-      for (final LocationModel item in items) {
-        if (item.childId == childId) return item;
-      }
-      return null;
-    });
+    return _db
+        .locations(familyId)
+        .snapshots()
+        .map((QuerySnapshot<Map<String, dynamic>> snap) {
+          return snap.docs.map(LocationModel.fromFirestore).toList();
+        })
+        .handleError((Object error, StackTrace stackTrace) {
+          Error.throwWithStackTrace(
+            FirestoreException(friendlyFirestoreMessage(error)),
+            stackTrace,
+          );
+        });
   }
 
   Future<LocationShareState> currentState() async {
@@ -82,38 +89,84 @@ class LocationService {
     required String childId,
   }) async {
     final LocationShareState state = await currentState();
-    if (state != LocationShareState.ready) return state;
-    await stopSharing();
+    if (state != LocationShareState.ready) {
+      await _setSharingFlag(
+        familyId: familyId,
+        childId: childId,
+        enabled: false,
+      );
+      return state;
+    }
+    await stopSharing(clearIds: false);
+    _familyId = familyId;
+    _childId = childId;
     try {
-      await _publishCurrent(familyId: familyId, childId: childId);
+      await _publishCurrent(familyId: familyId, childId: childId, enabled: true);
     } catch (_) {
-      // First fix can fail on emulator; the stream may still deliver later.
+      // First GPS fix can fail on an emulator; later stream events may succeed.
     }
     _sub = Geolocator.getPositionStream(
       locationSettings: const LocationSettings(
         accuracy: LocationAccuracy.high,
-        distanceFilter: 25,
+        distanceFilter: 8,
       ),
-    ).listen((Position position) {
+    ).listen(
+      (Position position) {
+        unawaited(
+          _writePosition(
+            familyId: familyId,
+            childId: childId,
+            position: position,
+            enabled: true,
+          ),
+        );
+      },
+      onError: (_) {},
+    );
+    _pulse = Timer.periodic(const Duration(seconds: 25), (_) {
       unawaited(
-        _writePosition(
-          familyId: familyId,
-          childId: childId,
-          position: position,
-        ),
+        _publishCurrent(familyId: familyId, childId: childId, enabled: true),
       );
     });
     return LocationShareState.sharing;
   }
 
-  Future<void> stopSharing() async {
+  Future<void> stopSharing({bool clearIds = true}) async {
     await _sub?.cancel();
     _sub = null;
+    _pulse?.cancel();
+    _pulse = null;
+    final String? familyId = _familyId;
+    final String? childId = _childId;
+    if (clearIds) {
+      _familyId = null;
+      _childId = null;
+      _lastWriteAt = null;
+    }
+    if (clearIds && familyId != null && childId != null) {
+      await _setSharingFlag(
+        familyId: familyId,
+        childId: childId,
+        enabled: false,
+      );
+    }
+  }
+
+  Future<void> markSharingOff({
+    required String familyId,
+    required String childId,
+  }) {
+    return _setSharingFlag(
+      familyId: familyId,
+      childId: childId,
+      enabled: false,
+    );
   }
 
   Future<void> _publishCurrent({
     required String familyId,
     required String childId,
+    required bool enabled,
   }) async {
     final Position position = await Geolocator.getCurrentPosition(
       locationSettings: const LocationSettings(
@@ -124,6 +177,8 @@ class LocationService {
       familyId: familyId,
       childId: childId,
       position: position,
+      enabled: enabled,
+      force: true,
     );
   }
 
@@ -131,55 +186,57 @@ class LocationService {
     required String familyId,
     required String childId,
     required Position position,
+    required bool enabled,
+    bool force = false,
   }) async {
+    if (!_isRealFix(position.latitude, position.longitude)) return;
+    final DateTime now = DateTime.now();
+    if (!force &&
+        _lastWriteAt != null &&
+        now.difference(_lastWriteAt!) < _minWriteGap) {
+      return;
+    }
     try {
-      final CollectionReference<Map<String, dynamic>> col = _db.locations(
-        familyId,
-      );
-      final DocumentReference<Map<String, dynamic>> doc = col.doc();
       final LocationModel location = LocationModel(
-        locationId: doc.id,
+        locationId: childId,
         childId: childId,
         latitude: position.latitude,
         longitude: position.longitude,
-        accuracy: position.accuracy,
+        accuracy: position.accuracy.isFinite ? position.accuracy : 0,
         timestamp: position.timestamp,
+        sharingEnabled: enabled,
+        source: 'device',
       );
-      await doc.set(location.toMap(isCreate: true));
-      await _prune(col, childId);
+      await _db.locations(familyId).doc(childId).set(location.toMap());
+      _lastWriteAt = now;
     } catch (error) {
       throw FirestoreException(friendlyFirestoreMessage(error));
     }
   }
 
-  Future<void> _prune(
-    CollectionReference<Map<String, dynamic>> col,
-    String childId,
-  ) async {
-    final QuerySnapshot<Map<String, dynamic>> snapshot = await col
-        .where('childId', isEqualTo: childId)
-        .get();
-    final List<QueryDocumentSnapshot<Map<String, dynamic>>> docs =
-        List<QueryDocumentSnapshot<Map<String, dynamic>>>.from(snapshot.docs);
-    docs.sort((QueryDocumentSnapshot<Map<String, dynamic>> a, QueryDocumentSnapshot<Map<String, dynamic>> b) {
-      final DateTime aTime =
-          readSafe(a.data()['timestamp']) ?? DateTime.fromMillisecondsSinceEpoch(0);
-      final DateTime bTime =
-          readSafe(b.data()['timestamp']) ?? DateTime.fromMillisecondsSinceEpoch(0);
-      return bTime.compareTo(aTime);
-    });
-    if (docs.length <= _keepLast) return;
-    final WriteBatch batch = FirebaseFirestore.instance.batch();
-    for (final QueryDocumentSnapshot<Map<String, dynamic>> extra
-        in docs.skip(_keepLast)) {
-      batch.delete(extra.reference);
+  Future<void> _setSharingFlag({
+    required String familyId,
+    required String childId,
+    required bool enabled,
+  }) async {
+    try {
+      await _db.locations(familyId).doc(childId).set(
+        <String, dynamic>{
+          'locationId': childId,
+          'childId': childId,
+          'sharingEnabled': enabled,
+          'source': 'device',
+        },
+        SetOptions(merge: true),
+      );
+    } catch (error) {
+      throw FirestoreException(friendlyFirestoreMessage(error));
     }
-    await batch.commit();
   }
-}
 
-DateTime? readSafe(Object? value) {
-  if (value is Timestamp) return value.toDate();
-  if (value is DateTime) return value;
-  return null;
+  static bool _isRealFix(double latitude, double longitude) {
+    if (!latitude.isFinite || !longitude.isFinite) return false;
+    if (latitude.abs() > 90 || longitude.abs() > 180) return false;
+    return latitude.abs() > 0.0001 || longitude.abs() > 0.0001;
+  }
 }

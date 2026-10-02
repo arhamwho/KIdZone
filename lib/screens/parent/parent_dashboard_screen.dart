@@ -2,22 +2,26 @@ import 'package:flutter/material.dart';
 
 import '../../models/activity_model.dart';
 import '../../models/child_model.dart';
-import '../../models/location_model.dart';
-import '../../models/points_model.dart';
+import '../../models/family_model.dart';
 import '../../models/screen_time_model.dart';
 import '../../models/user_role.dart';
 import '../../services/activity_service.dart';
 import '../../services/family_session.dart';
-import '../../services/game_service.dart';
-import '../../services/location_service.dart';
+import '../../services/firestore_service.dart';
 import '../../services/screen_time_service.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_spacing.dart';
 import '../../utils/app_routes.dart';
+import '../../utils/firestore_codec.dart';
+import '../../widgets/child_picker.dart';
 import '../../widgets/family_gate.dart';
+import '../../widgets/family_tools.dart';
+import '../../widgets/feature_tile.dart';
 import '../../widgets/kid_card.dart';
+import '../../widgets/page_header.dart';
 import '../../widgets/primary_button.dart';
 import '../../widgets/role_shell.dart';
+import '../../widgets/usage_rows.dart';
 
 class ParentDashboardScreen extends StatelessWidget {
   const ParentDashboardScreen({super.key});
@@ -25,211 +29,226 @@ class ParentDashboardScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return FamilyGate(
-      title: 'Parent Dashboard',
+      title: '',
       tint: UserRole.parent.tint,
+      actions: const <Widget>[],
       builder: (BuildContext context, FamilyScope scope) {
-        return ListView(
-          padding: const EdgeInsets.only(bottom: AppSpacing.xxl),
-          children: <Widget>[
-            KidCard(
-              background: AppColors.sky.withValues(alpha: 0.18),
-              borderColor: Colors.transparent,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+        return StreamBuilder<FamilyModel?>(
+          stream: FirestoreService.instance.watchFamily(scope.familyId),
+          builder: (BuildContext context, AsyncSnapshot<FamilyModel?> family) {
+            final String familyName =
+                family.data?.familyName ?? "${scope.user.name}'s family";
+            final ChildModel? child = scope.selectedChild;
+
+            if (child == null) {
+              return ListView(
+                padding: const EdgeInsets.only(bottom: AppSpacing.navClearance),
                 children: <Widget>[
-                  Text(
-                    'Hello, ${scope.user.name}',
-                    style: Theme.of(context).textTheme.titleLarge,
+                  ProfileHeader(
+                    name: scope.user.name,
+                    caption: familyName,
                   ),
-                  const SizedBox(height: AppSpacing.sm),
-                  SoftBadge(
-                    label: '${scope.children.length} ${scope.children.length == 1 ? 'child' : 'children'} in your family',
-                    background: AppColors.surface,
-                    foreground: AppColors.parentAccent,
-                    icon: Icons.home_outlined,
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: AppSpacing.xl),
-            const SectionHeader(
-              title: 'Children',
-              subtitle: 'Choose a child to see today’s snapshot.',
-            ),
-            const SizedBox(height: AppSpacing.md),
-            if (scope.children.isEmpty)
-              KidCard(
-                child: Text(
-                  'No children in this family yet.',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
-                ),
-              )
-            else
-              ...scope.children.map((ChildModel child) {
-                final bool selected = child.uid == scope.selectedChild?.uid;
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: AppSpacing.md),
-                  child: KidCard(
-                    background: selected
-                        ? AppColors.peach.withValues(alpha: 0.28)
-                        : null,
-                    onTap: () {
-                      FamilySession.instance.selectChild(child.uid);
-                      Navigator.of(context).pushNamed(
-                        AppRoutes.childOverview,
-                        arguments: child.uid,
-                      );
-                    },
-                    child: ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      leading: CircleAvatar(
-                        backgroundColor: AppColors.peach.withValues(alpha: 0.5),
-                        child: Icon(
-                          Icons.child_care_outlined,
-                          color: UserRole.child.accent,
-                        ),
-                      ),
-                      title: Text(child.name),
-                      subtitle: Text(selected ? 'Selected · ${child.email}' : child.email),
-                      trailing: IconButton(
-                        tooltip: 'Select',
-                        onPressed: () =>
-                            FamilySession.instance.selectChild(child.uid),
-                        icon: Icon(
-                          selected
-                              ? Icons.check_circle_rounded
-                              : Icons.radio_button_off,
-                          color: selected
-                              ? AppColors.parentAccent
-                              : Theme.of(context).colorScheme.outline,
-                        ),
-                      ),
+                  KidCard(
+                    child: Text(
+                      'Add a child to see their plan, location and screen time here.',
+                      style: Theme.of(context).textTheme.bodyMedium,
                     ),
                   ),
-                );
-              }),
-            const SizedBox(height: AppSpacing.sm),
-            PrimaryButton(
-              label: 'Add Child',
-              icon: Icons.add_rounded,
-              expand: true,
-              compact: true,
-              onPressed: () =>
-                  Navigator.of(context).pushNamed(AppRoutes.addChild),
-            ),
-            if (scope.selectedChild != null) ...<Widget>[
-              const SizedBox(height: AppSpacing.xxl),
-              SectionHeader(
-                title: '${scope.selectedChild!.name} today',
-                subtitle: 'Live from your family space.',
-              ),
-              const SizedBox(height: AppSpacing.lg),
-              _ChildSnapshot(
+                  const SizedBox(height: AppSpacing.xl),
+                  PrimaryButton(
+                    label: 'Add child',
+                    onPressed: () =>
+                        Navigator.of(context).pushNamed(AppRoutes.addChild),
+                  ),
+                ],
+              );
+            }
+
+            return StreamBuilder<ScreenTimeModel?>(
+              stream: ScreenTimeService.instance.watchToday(
                 familyId: scope.familyId,
-                child: scope.selectedChild!,
-              ),
-            ],
-            const SizedBox(height: AppSpacing.xxl),
-            const SectionHeader(
-              title: 'Family tools',
-              subtitle: 'Jump into today’s care and learning.',
-            ),
-            const SizedBox(height: AppSpacing.lg),
-            const _ToolGrid(),
-          ],
-        );
-      },
-    );
-  }
-}
-
-class _ChildSnapshot extends StatelessWidget {
-  const _ChildSnapshot({required this.familyId, required this.child});
-
-  final String familyId;
-  final ChildModel child;
-
-  @override
-  Widget build(BuildContext context) {
-    return StreamBuilder<List<ActivityModel>>(
-      stream: ActivityService.instance.watchChildActivities(
-        familyId: familyId,
-        childId: child.uid,
-      ),
-      builder: (BuildContext context, AsyncSnapshot<List<ActivityModel>> acts) {
-        return StreamBuilder<ScreenTimeModel?>(
-          stream: ScreenTimeService.instance.watchToday(
-            familyId: familyId,
-            childId: child.uid,
-          ),
-          builder: (BuildContext context, AsyncSnapshot<ScreenTimeModel?> time) {
-            return StreamBuilder<LocationModel?>(
-              stream: LocationService.instance.watchLatestForChild(
-                familyId: familyId,
                 childId: child.uid,
               ),
               builder:
-                  (BuildContext context, AsyncSnapshot<LocationModel?> loc) {
-                return StreamBuilder<PointsModel>(
-                  stream: GameService.instance.watchPoints(
-                    familyId: familyId,
+                  (BuildContext context, AsyncSnapshot<ScreenTimeModel?> time) {
+                return StreamBuilder<List<ActivityModel>>(
+                  stream: ActivityService.instance.watchChildActivities(
+                    familyId: scope.familyId,
                     childId: child.uid,
                   ),
                   builder:
-                      (BuildContext context, AsyncSnapshot<PointsModel> points) {
-                    final List<ActivityModel> today = (acts.data ?? <ActivityModel>[])
-                        .where((ActivityModel item) => item.isToday)
-                        .toList();
-                    final int done = today
-                        .where((ActivityModel item) => item.completed)
-                        .length;
+                      (
+                        BuildContext context,
+                        AsyncSnapshot<List<ActivityModel>> acts,
+                      ) {
                     final ScreenTimeModel? usage = time.data;
-                    final PointsModel pts =
-                        points.data ?? PointsModel.empty(child.uid);
-                    return Column(
+                    final List<ActivityModel> activities =
+                        acts.data ?? const <ActivityModel>[];
+                    final int todayCount = activities
+                        .where((ActivityModel item) => item.isToday)
+                        .length;
+                    final int used = usage?.totalMinutes ?? 0;
+
+                    return ListView(
+                      padding: const EdgeInsets.only(bottom: AppSpacing.navClearance),
                       children: <Widget>[
-                        Row(
-                          children: <Widget>[
-                            Expanded(
-                              child: _StatCard(
-                                label: 'Activities',
-                                value: today.isEmpty ? 'None yet' : '$done / ${today.length}',
-                                icon: Icons.event_note_outlined,
-                              ),
+                        ProfileHeader(
+                          name: scope.user.name,
+                          caption: familyName,
+                        ),
+                        if (scope.children.length > 1) ...<Widget>[
+                          ChildPicker(
+                            children: scope.children,
+                            selectedId: child.uid,
+                            onSelected: FamilySession.instance.selectChild,
+                          ),
+                          const SizedBox(height: AppSpacing.lg),
+                        ],
+                        KidCard(
+                          onTap: () {
+                            FamilySession.instance.selectChild(child.uid);
+                            Navigator.of(context).pushNamed(
+                              AppRoutes.childOverview,
+                              arguments: child.uid,
+                            );
+                          },
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: AppSpacing.lg,
+                            vertical: AppSpacing.md,
+                          ),
+                          child: ListTile(
+                            contentPadding: EdgeInsets.zero,
+                            leading: PersonAvatar(
+                              name: child.name,
+                              size: PersonAvatar.header,
                             ),
-                            const SizedBox(width: AppSpacing.md),
-                            Expanded(
-                              child: _StatCard(
-                                label: 'Points',
-                                value: '${pts.points}',
-                                icon: Icons.stars_rounded,
-                              ),
+                            title: Text(child.name),
+                            subtitle: Text(
+                              usage == null
+                                  ? 'No screen time yet today'
+                                  : formatHoursMinutes(used),
+                            ),
+                            trailing: const Icon(Icons.chevron_right_rounded),
+                          ),
+                        ),
+                        const SizedBox(height: AppSpacing.md),
+                        InsightCard(
+                          tiles: <InsightTile>[
+                            InsightTile(
+                              icon: Icons.event_available_rounded,
+                              value: todayCount == 0 ? '—' : '$todayCount',
+                              label: 'today’s plan',
+                              color: AppColors.tileBlue,
+                            ),
+                            InsightTile(
+                              icon: Icons.timelapse_rounded,
+                              value: usage == null
+                                  ? '—'
+                                  : formatHoursMinutes(used),
+                              label: 'screen time',
+                              color: AppColors.tileOrange,
                             ),
                           ],
                         ),
-                        const SizedBox(height: AppSpacing.md),
+                        const SizedBox(height: AppSpacing.xl),
                         Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                           children: <Widget>[
-                            Expanded(
-                              child: _StatCard(
-                                label: 'Screen time',
-                                value: usage == null
-                                    ? 'Waiting'
-                                    : '${usage.totalMinutes} min',
-                                icon: Icons.timelapse_outlined,
-                              ),
+                            CircleAction(
+                              icon: Icons.event_note_outlined,
+                              label: 'Plan',
+                              onTap: () =>
+                                  ShellTabs.maybeOf(context)?.onSelect(1),
                             ),
-                            const SizedBox(width: AppSpacing.md),
-                            Expanded(
-                              child: _StatCard(
-                                label: 'Location',
-                                value: loc.data == null ? 'No pin yet' : 'Updated',
-                                icon: Icons.location_on_outlined,
-                              ),
+                            CircleAction(
+                              icon: Icons.location_on_outlined,
+                              label: 'Location',
+                              onTap: () =>
+                                  ShellTabs.maybeOf(context)?.onSelect(2),
+                            ),
+                            CircleAction(
+                              icon: Icons.timelapse_outlined,
+                              label: 'Screen',
+                              onTap: () =>
+                                  ShellTabs.maybeOf(context)?.onSelect(3),
                             ),
                           ],
+                        ),
+                        const SizedBox(height: AppSpacing.xl),
+                        const SectionHeader(title: 'Features'),
+                        const SizedBox(height: AppSpacing.md),
+                        GridView.count(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          crossAxisCount: 2,
+                          mainAxisSpacing: AppSpacing.md,
+                          crossAxisSpacing: AppSpacing.md,
+                          childAspectRatio: 1.08,
+                          children: <Widget>[
+                            FeatureTile(
+                              color: AppColors.tileBlue,
+                              icon: Icons.event_available_rounded,
+                              title: 'Activities',
+                              subtitle: todayCount == 0
+                                  ? 'No plan today'
+                                  : '$todayCount today',
+                              onTap: () =>
+                                  ShellTabs.maybeOf(context)?.onSelect(1),
+                            ),
+                            FeatureTile(
+                              color: AppColors.tileOrange,
+                              icon: Icons.apps_rounded,
+                              title: 'Screen Time',
+                              subtitle: usage == null
+                                  ? 'Waiting for usage'
+                                  : formatHoursMinutes(used),
+                              onTap: () =>
+                                  ShellTabs.maybeOf(context)?.onSelect(3),
+                            ),
+                            FeatureTile(
+                              color: AppColors.tilePurple,
+                              icon: Icons.shield_moon_rounded,
+                              title: 'Learning',
+                              subtitle: 'Quizzes & points',
+                              onTap: () =>
+                                  ShellTabs.maybeOf(context)?.onSelect(4),
+                            ),
+                            FeatureTile(
+                              color: AppColors.tileGreen,
+                              icon: Icons.gps_fixed_rounded,
+                              title: 'GPS',
+                              subtitle: 'Live location',
+                              onTap: () =>
+                                  ShellTabs.maybeOf(context)?.onSelect(2),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: AppSpacing.lg),
+                        const FamilyToolsCard(),
+                        const SizedBox(height: AppSpacing.lg),
+                        KidCard(
+                          onTap: () =>
+                              Navigator.of(context).pushNamed(AppRoutes.addChild),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: AppSpacing.lg,
+                            vertical: AppSpacing.md,
+                          ),
+                          child: const ListTile(
+                            contentPadding: EdgeInsets.zero,
+                            leading: Icon(
+                              Icons.add_rounded,
+                              color: AppColors.parentAccent,
+                            ),
+                            title: Text('Add child'),
+                            trailing: Icon(Icons.chevron_right_rounded),
+                          ),
+                        ),
+                        const SizedBox(height: AppSpacing.lg),
+                        RecentActivityCard(
+                          usage: usage,
+                          activities: activities,
+                          onViewAll: () =>
+                              ShellTabs.maybeOf(context)?.onSelect(3),
                         ),
                       ],
                     );
@@ -240,70 +259,6 @@ class _ChildSnapshot extends StatelessWidget {
           },
         );
       },
-    );
-  }
-}
-
-class _StatCard extends StatelessWidget {
-  const _StatCard({
-    required this.label,
-    required this.value,
-    required this.icon,
-  });
-
-  final String label;
-  final String value;
-  final IconData icon;
-
-  @override
-  Widget build(BuildContext context) {
-    return KidCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Icon(icon, color: AppColors.parentAccent),
-          const SizedBox(height: AppSpacing.sm),
-          Text(label, style: Theme.of(context).textTheme.bodySmall),
-          Text(value, style: Theme.of(context).textTheme.titleSmall),
-        ],
-      ),
-    );
-  }
-}
-
-class _ToolGrid extends StatelessWidget {
-  const _ToolGrid();
-
-  @override
-  Widget build(BuildContext context) {
-    const List<(IconData, String, int)> tools = <(IconData, String, int)>[
-      (Icons.event_note_outlined, 'Activities', 1),
-      (Icons.location_on_outlined, 'Location', 2),
-      (Icons.timelapse_outlined, 'Screen Time', 3),
-      (Icons.extension_outlined, 'Learning Games', 4),
-    ];
-
-    return GridView.count(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      crossAxisCount: 2,
-      mainAxisSpacing: AppSpacing.md,
-      crossAxisSpacing: AppSpacing.md,
-      childAspectRatio: 1.35,
-      children: <Widget>[
-        for (final (IconData icon, String label, int tab) in tools)
-          KidCard(
-            onTap: () => ShellTabs.maybeOf(context)?.onSelect(tab),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: <Widget>[
-                Icon(icon, color: AppColors.parentAccent),
-                const SizedBox(height: AppSpacing.sm),
-                Text(label, textAlign: TextAlign.center),
-              ],
-            ),
-          ),
-      ],
     );
   }
 }

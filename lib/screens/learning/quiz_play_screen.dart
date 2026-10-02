@@ -9,6 +9,7 @@ import '../../theme/app_colors.dart';
 import '../../theme/app_spacing.dart';
 import '../../widgets/app_page.dart';
 import '../../widgets/kid_card.dart';
+import '../../widgets/page_header.dart';
 import '../../widgets/primary_button.dart';
 import '../../widgets/status_views.dart';
 
@@ -28,6 +29,7 @@ class _QuizPlayScreenState extends State<QuizPlayScreen> {
   bool _locked = false;
   bool _done = false;
   bool _saving = false;
+  QuizSaveResult? _saved;
 
   LearningGameModel? get _game => GameService.instance.gameById(widget.gameId);
 
@@ -44,7 +46,7 @@ class _QuizPlayScreenState extends State<QuizPlayScreen> {
       final profile = await FirestoreService.instance.getUserProfile(uid);
       final String? familyId = profile?.familyId;
       if (familyId == null) return;
-      await GameService.instance.saveQuizResult(
+      _saved = await GameService.instance.saveQuizResult(
         familyId: familyId,
         childId: uid,
         gameId: game.gameId,
@@ -69,56 +71,84 @@ class _QuizPlayScreenState extends State<QuizPlayScreen> {
     final LearningGameModel? game = _game;
     if (game == null) {
       return const AppPage(
-        title: 'Game',
-        child: MessageView('That game could not be found.'),
+        title: '',
+        child: Column(
+          children: <Widget>[
+            AppTopBar(title: 'Game'),
+            Expanded(
+              child: MessageView('That game could not be found.'),
+            ),
+          ],
+        ),
       );
     }
 
     if (_done) {
       final bool perfect = _score == game.questions.length;
+      final int awarded = _saved?.awardedPoints ?? 0;
+      final int best = _saved?.bestScore ?? _score;
       return AppPage(
-        title: game.title,
+        title: '',
         tint: UserRole.child.tint,
-        child: Center(
-          child: KidCard(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: <Widget>[
-                Icon(
-                  perfect ? Icons.auto_awesome : Icons.emoji_events_outlined,
-                  size: 48,
-                  color: UserRole.child.accent,
+        child: Column(
+          children: <Widget>[
+            AppTopBar(title: game.title),
+            Expanded(
+              child: Center(
+                child: KidCard(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: <Widget>[
+                      Icon(
+                        perfect
+                            ? Icons.auto_awesome
+                            : Icons.emoji_events_outlined,
+                        size: 48,
+                        color: UserRole.child.accent,
+                      ),
+                      const SizedBox(height: AppSpacing.md),
+                      Text(
+                        'Nice work!',
+                        style: Theme.of(context).textTheme.titleLarge,
+                      ),
+                      Text('$_score / ${game.questions.length} correct'),
+                      Text('Best score $best / ${game.questions.length}'),
+                      Text(
+                        _saving && _saved == null
+                            ? 'Saving your score…'
+                            : awarded == 0
+                            ? 'Score saved. Points were already awarded for this game.'
+                            : perfect
+                            ? '+$awarded points for a perfect round'
+                            : '+$awarded points added to your total',
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: AppSpacing.lg),
+                      PrimaryButton(
+                        label: _saving ? 'Saving…' : 'Done',
+                        expand: true,
+                        compact: true,
+                        onPressed:
+                            _saving ? null : () => Navigator.of(context).pop(),
+                      ),
+                    ],
+                  ),
                 ),
-                const SizedBox(height: AppSpacing.md),
-                Text('Nice work!', style: Theme.of(context).textTheme.titleLarge),
-                Text('$_score / ${game.questions.length}'),
-                Text(
-                  perfect
-                      ? '+30 points for a perfect round'
-                      : '+20 points added to your total',
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: AppSpacing.lg),
-                PrimaryButton(
-                  label: _saving ? 'Saving…' : 'Done',
-                  expand: true,
-                  compact: true,
-                  onPressed: _saving ? null : () => Navigator.of(context).pop(),
-                ),
-              ],
+              ),
             ),
-          ),
+          ],
         ),
       );
     }
 
     final QuizQuestion question = game.questions[_index];
     return AppPage(
-      title: game.title,
+      title: '',
       tint: UserRole.child.tint,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
+          AppTopBar(title: game.title),
           Text('Question ${_index + 1} of ${game.questions.length}'),
           LinearProgressIndicator(
             value: (_index + 1) / game.questions.length,

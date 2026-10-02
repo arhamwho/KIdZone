@@ -11,7 +11,7 @@ const List<OnboardingPageData> onboardingPages = <OnboardingPageData>[
         'KidZone brings your family\'s routines, learning and screen habits '
         'together in one calm, friendly place.',
     icon: Icons.favorite_rounded,
-    color: AppColors.peach,
+    color: AppColors.sky,
     iconColor: AppColors.primary,
   ),
   OnboardingPageData(

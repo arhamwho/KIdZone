@@ -1,12 +1,6 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // KidZone family rules.
-    // Parents can manage their own family. Children can read family data
-    // that belongs to them, complete their own activities, and write their
-    // own location / usage / game progress. Roles and family membership
-    // cannot be arbitrarily rewritten.
-
     function signedIn() {
       return request.auth != null;
     }
@@ -66,7 +60,10 @@ service cloud.firestore {
 
       allow update: if (isSelf(uid)
             && roleUnchanged()
-            && (familyUnchanged() || claimingOwnFamily()))
+            && (familyUnchanged() || claimingOwnFamily())
+            && (isParent()
+                || request.resource.data.diff(resource.data).affectedKeys()
+                    .hasOnly(['lastActiveAt', 'locationSharingEnabled'])))
         || (isParent()
             && resource.data.familyId == currentUser().familyId
             && roleUnchanged()
@@ -110,14 +107,15 @@ service cloud.firestore {
           || (isChild()
               && resource.data.childId == request.auth.uid
               && request.resource.data.diff(resource.data).affectedKeys()
-                  .hasOnly(['completed']));
+                  .hasOnly(['completed', 'completedAt', 'pointsAwarded']));
       }
 
       match /locations/{locationId} {
         allow read: if belongsToFamily(familyId);
 
-        allow create: if isChild()
+        allow create, update: if isChild()
           && belongsToFamily(familyId)
+          && locationId == request.auth.uid
           && request.resource.data.childId == request.auth.uid;
 
         allow delete: if isChild()
@@ -125,12 +123,19 @@ service cloud.firestore {
           && resource.data.childId == request.auth.uid;
       }
 
-      match /screenTime/{recordId} {
+      match /screenTime/{childId} {
         allow read: if belongsToFamily(familyId);
 
         allow create, update: if isChild()
           && belongsToFamily(familyId)
-          && request.resource.data.childId == request.auth.uid;
+          && childId == request.auth.uid
+          && request.resource.data.childId == request.auth.uid
+          && request.resource.data.source == 'device';
+
+        allow update: if isParent()
+          && belongsToFamily(familyId)
+          && request.resource.data.diff(resource.data).affectedKeys()
+              .hasOnly(['dailyLimitMinutes']);
       }
 
       match /gameProgress/{progressId} {
@@ -148,6 +153,69 @@ service cloud.firestore {
           && belongsToFamily(familyId)
           && request.auth.uid == childId
           && request.resource.data.childId == request.auth.uid;
+      }
+
+      match /wallets/{childId} {
+        allow read: if belongsToFamily(familyId)
+          && (isParent() || request.auth.uid == childId);
+
+        allow create, update: if isParent()
+          && belongsToFamily(familyId)
+          && request.resource.data.childId == childId;
+
+        match /transactions/{transactionId} {
+          allow read: if belongsToFamily(familyId)
+            && (isParent() || request.auth.uid == childId);
+
+          allow create: if isParent()
+            && belongsToFamily(familyId)
+            && request.resource.data.createdBy == request.auth.uid
+            && request.resource.data.type in ['pocket_money', 'allowance', 'payment', 'adjustment']
+            && request.resource.data.amount is number;
+
+          allow update, delete: if false;
+        }
+      }
+
+      match /messages/{messageId} {
+        allow read: if belongsToFamily(familyId);
+
+        allow create: if belongsToFamily(familyId)
+          && request.resource.data.senderId == request.auth.uid
+          && request.resource.data.receiverId is string
+          && request.resource.data.receiverId != request.auth.uid
+          && exists(/databases/$(database)/documents/users/$(request.resource.data.receiverId))
+          && get(/databases/$(database)/documents/users/$(request.resource.data.receiverId)).data.familyId
+              == familyId
+          && request.resource.data.text is string
+          && request.resource.data.text.size() > 0
+          && request.resource.data.text.size() <= 500;
+
+        allow update: if belongsToFamily(familyId)
+          && request.auth.uid == resource.data.receiverId
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']);
+
+        allow delete: if false;
+      }
+
+      match /reminders/{reminderId} {
+        allow read: if belongsToFamily(familyId)
+          && (isParent() || resource.data.childId == request.auth.uid);
+
+        allow create: if isParent()
+          && belongsToFamily(familyId)
+          && request.resource.data.createdBy == request.auth.uid
+          && exists(/databases/$(database)/documents/users/$(request.resource.data.childId))
+          && get(/databases/$(database)/documents/users/$(request.resource.data.childId)).data.familyId
+              == familyId;
+
+        allow update: if (isParent() && belongsToFamily(familyId))
+          || (isChild()
+              && resource.data.childId == request.auth.uid
+              && request.resource.data.diff(resource.data).affectedKeys()
+                  .hasOnly(['completed']));
+
+        allow delete: if isParent() && belongsToFamily(familyId);
       }
     }
   }

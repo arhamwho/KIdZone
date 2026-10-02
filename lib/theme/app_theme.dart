@@ -20,7 +20,7 @@ class AppTheme {
         ).copyWith(
           primary: AppColors.primary,
           onPrimary: Colors.white,
-          primaryContainer: AppColors.peach,
+          primaryContainer: AppColors.sand,
           onPrimaryContainer: AppColors.ink,
           secondary: AppColors.parentAccent,
           onSecondary: Colors.white,
@@ -111,7 +111,6 @@ class AppTheme {
         clipBehavior: Clip.antiAlias,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppRadius.lg),
-          side: BorderSide(color: scheme.outlineVariant),
         ),
       ),
 
@@ -216,10 +215,10 @@ class AppTheme {
       navigationBarTheme: NavigationBarThemeData(
         backgroundColor: scheme.surface,
         surfaceTintColor: Colors.transparent,
-        indicatorColor: AppColors.peach.withValues(alpha: 0.55),
-        indicatorShape: pillShape,
+        indicatorColor: AppColors.primary.withValues(alpha: 0.14),
+        indicatorShape: const CircleBorder(),
         elevation: 0,
-        height: 72,
+        height: 68,
         labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
         labelTextStyle: WidgetStatePropertyAll<TextStyle?>(
           textTheme.labelMedium,
@@ -228,7 +227,7 @@ class AppTheme {
 
       navigationRailTheme: NavigationRailThemeData(
         backgroundColor: scheme.surface,
-        indicatorColor: AppColors.peach.withValues(alpha: 0.55),
+        indicatorColor: AppColors.primary.withValues(alpha: 0.14),
         selectedLabelTextStyle: textTheme.labelMedium,
         unselectedLabelTextStyle: textTheme.labelMedium?.copyWith(
           color: textSecondary,

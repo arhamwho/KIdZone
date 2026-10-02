@@ -125,7 +125,7 @@ class _RoleCard extends StatelessWidget {
     final ThemeData theme = Theme.of(context);
     final Color tint = role == UserRole.parent
         ? AppColors.sky.withValues(alpha: 0.22)
-        : AppColors.peach.withValues(alpha: 0.38);
+        : AppColors.peach.withValues(alpha: 0.22);
 
     // Compact horizontal card so both roles fit on a small phone screen.
     return KidCard(

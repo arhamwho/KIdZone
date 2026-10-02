@@ -17,6 +17,7 @@ class UserModel {
     this.createdAt,
     this.locationSharingEnabled = false,
     this.dailyScreenLimitMinutes = 120,
+    this.lastActiveAt,
   });
 
   final String uid;
@@ -27,6 +28,13 @@ class UserModel {
   final DateTime? createdAt;
   final bool locationSharingEnabled;
   final int dailyScreenLimitMinutes;
+  final DateTime? lastActiveAt;
+
+  bool get isOnline {
+    final DateTime? seen = lastActiveAt;
+    if (seen == null) return false;
+    return DateTime.now().difference(seen) < const Duration(minutes: 5);
+  }
 
   UserModel copyWith({
     String? name,
@@ -35,6 +43,7 @@ class UserModel {
     DateTime? createdAt,
     bool? locationSharingEnabled,
     int? dailyScreenLimitMinutes,
+    DateTime? lastActiveAt,
   }) {
     return UserModel(
       uid: uid,
@@ -47,6 +56,7 @@ class UserModel {
           locationSharingEnabled ?? this.locationSharingEnabled,
       dailyScreenLimitMinutes:
           dailyScreenLimitMinutes ?? this.dailyScreenLimitMinutes,
+      lastActiveAt: lastActiveAt ?? this.lastActiveAt,
     );
   }
 
@@ -66,6 +76,7 @@ class UserModel {
       locationSharingEnabled: data['locationSharingEnabled'] as bool? ?? false,
       dailyScreenLimitMinutes:
           (data['dailyScreenLimitMinutes'] as num?)?.toInt() ?? 120,
+      lastActiveAt: readDate(data['lastActiveAt']),
     );
   }
 
@@ -78,6 +89,9 @@ class UserModel {
       'familyId': familyId,
       'locationSharingEnabled': locationSharingEnabled,
       'dailyScreenLimitMinutes': dailyScreenLimitMinutes,
+      'lastActiveAt': lastActiveAt == null
+          ? null
+          : Timestamp.fromDate(lastActiveAt!),
       'createdAt': writeDate(isCreate: isCreate, existing: createdAt),
     };
   }

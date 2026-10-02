@@ -34,6 +34,31 @@ final List<LearningGameModel> quizCatalog = <LearningGameModel>[
         choices: <String>['11', '15', '18', '21'],
         correctIndex: 2,
       ),
+      QuizQuestion(
+        prompt: 'What is 8 + 8?',
+        choices: <String>['14', '16', '18', '20'],
+        correctIndex: 1,
+      ),
+      QuizQuestion(
+        prompt: 'What is 15 − 6?',
+        choices: <String>['7', '8', '9', '11'],
+        correctIndex: 2,
+      ),
+      QuizQuestion(
+        prompt: 'What is 4 × 5?',
+        choices: <String>['16', '20', '24', '25'],
+        correctIndex: 1,
+      ),
+      QuizQuestion(
+        prompt: 'What is 12 ÷ 3?',
+        choices: <String>['2', '3', '4', '6'],
+        correctIndex: 2,
+      ),
+      QuizQuestion(
+        prompt: 'Which is the largest?',
+        choices: <String>['19', '21', '17', '20'],
+        correctIndex: 1,
+      ),
     ],
   ),
   const LearningGameModel(
@@ -67,6 +92,31 @@ final List<LearningGameModel> quizCatalog = <LearningGameModel>[
         choices: <String>['Beautiful', 'Beutiful', 'Beautifull', 'Buetiful'],
         correctIndex: 0,
       ),
+      QuizQuestion(
+        prompt: 'Choose the correct spelling.',
+        choices: <String>['Tommorow', 'Tomorrow', 'Tommorrow', 'Tomorow'],
+        correctIndex: 1,
+      ),
+      QuizQuestion(
+        prompt: 'Which word is right?',
+        choices: <String>['Famly', 'Family', 'Familey', 'Famaly'],
+        correctIndex: 1,
+      ),
+      QuizQuestion(
+        prompt: 'Pick the correctly spelled animal.',
+        choices: <String>['Elefant', 'Elephant', 'Elephent', 'Eliphant'],
+        correctIndex: 1,
+      ),
+      QuizQuestion(
+        prompt: 'Which spelling is correct?',
+        choices: <String>['Wensday', 'Wednesday', 'Wedensday', 'Wendesday'],
+        correctIndex: 1,
+      ),
+      QuizQuestion(
+        prompt: 'Choose the right word.',
+        choices: <String>['Frendly', 'Friendly', 'Friendley', 'Frendely'],
+        correctIndex: 1,
+      ),
     ],
   ),
   const LearningGameModel(
@@ -99,6 +149,31 @@ final List<LearningGameModel> quizCatalog = <LearningGameModel>[
         prompt: 'How many hours are in a day?',
         choices: <String>['12', '20', '24', '30'],
         correctIndex: 2,
+      ),
+      QuizQuestion(
+        prompt: 'What colour is the sky on a clear day?',
+        choices: <String>['Green', 'Blue', 'Red', 'Yellow'],
+        correctIndex: 1,
+      ),
+      QuizQuestion(
+        prompt: 'How many legs does a spider have?',
+        choices: <String>['4', '6', '8', '10'],
+        correctIndex: 2,
+      ),
+      QuizQuestion(
+        prompt: 'Which season comes after winter?',
+        choices: <String>['Autumn', 'Spring', 'Summer', 'Winter'],
+        correctIndex: 1,
+      ),
+      QuizQuestion(
+        prompt: 'What do we use to tell the time?',
+        choices: <String>['A clock', 'A spoon', 'A shoe', 'A book'],
+        correctIndex: 0,
+      ),
+      QuizQuestion(
+        prompt: 'Which of these is a fruit?',
+        choices: <String>['Carrot', 'Apple', 'Bread', 'Cheese'],
+        correctIndex: 1,
       ),
     ],
   ),

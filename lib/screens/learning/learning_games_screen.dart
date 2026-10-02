@@ -9,7 +9,8 @@ import '../../theme/app_colors.dart';
 import '../../theme/app_spacing.dart';
 import '../../utils/app_routes.dart';
 import '../../widgets/family_gate.dart';
-import '../../widgets/kid_card.dart';
+import '../../widgets/feature_tile.dart';
+import '../../widgets/page_header.dart';
 
 class LearningGamesScreen extends StatelessWidget {
   const LearningGamesScreen({super.key});
@@ -17,7 +18,7 @@ class LearningGamesScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return FamilyGate(
-      title: 'Learning Games',
+      title: '',
       tint: UserRole.child.tint,
       builder: (BuildContext context, FamilyScope scope) {
         return StreamBuilder<List<GameProgressModel>>(
@@ -30,43 +31,46 @@ class LearningGamesScreen extends StatelessWidget {
                 BuildContext context,
                 AsyncSnapshot<List<GameProgressModel>> snap,
               ) {
-            final Map<String, GameProgressModel> byId = <String, GameProgressModel>{
-              for (final GameProgressModel item in snap.data ?? <GameProgressModel>[])
+            final Map<String, GameProgressModel> byId =
+                <String, GameProgressModel>{
+              for (final GameProgressModel item
+                  in snap.data ?? <GameProgressModel>[])
                 item.gameId: item,
             };
-            return ListView(
-              padding: const EdgeInsets.only(bottom: AppSpacing.xxl),
+            return Column(
               children: <Widget>[
-                Text(
-                  'Play, learn and earn points.',
-                  style: Theme.of(context).textTheme.bodyMedium,
-                ),
-                const SizedBox(height: AppSpacing.lg),
-                for (final LearningGameModel game in quizCatalog)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: AppSpacing.md),
-                    child: KidCard(
-                      background: AppColors.categoryAt(
-                        quizCatalog.indexOf(game),
-                      ).withValues(alpha: 0.22),
-                      borderColor: Colors.transparent,
-                      onTap: () => Navigator.of(context).pushNamed(
-                        AppRoutes.quizPlay,
-                        arguments: game.gameId,
-                      ),
-                      child: ListTile(
-                        contentPadding: EdgeInsets.zero,
-                        leading: Icon(game.icon, color: UserRole.child.accent),
-                        title: Text(game.title),
-                        subtitle: Text(
-                          byId[game.gameId]?.completed == true
-                              ? 'Best ${byId[game.gameId]!.bestScore}/${game.questions.length}'
-                              : game.subtitle,
-                        ),
-                        trailing: const Icon(Icons.play_arrow_rounded),
-                      ),
+                const AppTopBar(title: 'Games'),
+                Expanded(
+                  child: GridView.builder(
+                    padding: const EdgeInsets.only(
+                      bottom: AppSpacing.navClearance,
                     ),
+                    gridDelegate:
+                        const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 2,
+                      mainAxisSpacing: AppSpacing.md,
+                      crossAxisSpacing: AppSpacing.md,
+                      childAspectRatio: 1.05,
+                    ),
+                    itemCount: quizCatalog.length,
+                    itemBuilder: (BuildContext context, int index) {
+                      final LearningGameModel game = quizCatalog[index];
+                      final GameProgressModel? progress = byId[game.gameId];
+                      return FeatureTile(
+                        color: AppColors.categoryAt(index),
+                        icon: game.icon,
+                        title: game.title,
+                        subtitle: progress?.completed == true
+                            ? 'Best ${progress!.bestScore}/${game.questions.length}'
+                            : game.subtitle,
+                        onTap: () => Navigator.of(context).pushNamed(
+                          AppRoutes.quizPlay,
+                          arguments: game.gameId,
+                        ),
+                      );
+                    },
                   ),
+                ),
               ],
             );
           },

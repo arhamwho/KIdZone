@@ -2,24 +2,41 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../utils/firestore_codec.dart';
 
-class AppUsageItem {
-  const AppUsageItem({required this.name, required this.minutes});
+class AppUsageModel {
+  const AppUsageModel({
+    required this.packageName,
+    required this.appName,
+    required this.minutes,
+  });
 
-  final String name;
+  final String packageName;
+  final String appName;
   final int minutes;
 
-  factory AppUsageItem.fromMap(Map<String, dynamic> data) {
-    return AppUsageItem(
-      name: data['name'] as String? ?? 'App',
+  /// Display name used by existing list rows.
+  String get name => appName;
+
+  factory AppUsageModel.fromMap(Map<String, dynamic> data) {
+    final String appName =
+        data['appName'] as String? ?? data['name'] as String? ?? 'App';
+    return AppUsageModel(
+      packageName: data['packageName'] as String? ?? '',
+      appName: appName,
       minutes: (data['minutes'] as num?)?.toInt() ?? 0,
     );
   }
 
   Map<String, dynamic> toMap() => <String, dynamic>{
-    'name': name,
+    'packageName': packageName,
+    'appName': appName,
+    'name': appName,
     'minutes': minutes,
   };
 }
+
+typedef AppUsageItem = AppUsageModel;
+
+enum ScreenTimeLevel { empty, normal, warning, exceeded }
 
 class ScreenTimeModel {
   const ScreenTimeModel({
@@ -28,6 +45,7 @@ class ScreenTimeModel {
     required this.date,
     required this.totalMinutes,
     required this.appUsage,
+    this.dailyLimitMinutes = 120,
     this.updatedAt,
     this.source = 'device',
   });
@@ -36,13 +54,47 @@ class ScreenTimeModel {
   final String childId;
   final String date;
   final int totalMinutes;
-  final List<AppUsageItem> appUsage;
+  final int dailyLimitMinutes;
+  final List<AppUsageModel> appUsage;
   final DateTime? updatedAt;
 
-  /// `device` or `demo`. Never treat demo as live usage.
+  /// `device`, `demo`, or `unavailable`.
   final String source;
 
   bool get isDemo => source == 'demo';
+
+  bool get isToday => date == dateKey(DateTime.now());
+
+  int get remainingMinutes {
+    final int left = dailyLimitMinutes - totalMinutes;
+    return left < 0 ? 0 : left;
+  }
+
+  double get percentage {
+    if (dailyLimitMinutes <= 0) return 0;
+    return totalMinutes / dailyLimitMinutes;
+  }
+
+  ScreenTimeLevel levelFor(int limit) {
+    if (limit <= 0) return ScreenTimeLevel.empty;
+    final double value = totalMinutes / limit;
+    if (value > 1) return ScreenTimeLevel.exceeded;
+    if (value >= 0.75) return ScreenTimeLevel.warning;
+    return ScreenTimeLevel.normal;
+  }
+
+  ScreenTimeModel withLimit(int limit) {
+    return ScreenTimeModel(
+      recordId: recordId,
+      childId: childId,
+      date: date,
+      totalMinutes: totalMinutes,
+      dailyLimitMinutes: limit,
+      appUsage: appUsage,
+      updatedAt: updatedAt,
+      source: source,
+    );
+  }
 
   factory ScreenTimeModel.fromFirestore(
     DocumentSnapshot<Map<String, dynamic>> doc,
@@ -53,15 +105,17 @@ class ScreenTimeModel {
   factory ScreenTimeModel.fromMap(Map<String, dynamic> data, String id) {
     final List<dynamic> raw = data['appUsage'] as List<dynamic>? ?? <dynamic>[];
     return ScreenTimeModel(
-      recordId: data['recordId'] as String? ?? id,
-      childId: data['childId'] as String? ?? '',
+      recordId: data['recordId'] as String? ?? data['childId'] as String? ?? id,
+      childId: data['childId'] as String? ?? id,
       date: data['date'] as String? ?? dateKey(DateTime.now()),
       totalMinutes: (data['totalMinutes'] as num?)?.toInt() ?? 0,
+      dailyLimitMinutes:
+          (data['dailyLimitMinutes'] as num?)?.toInt() ?? 120,
       appUsage: raw
           .whereType<Map<dynamic, dynamic>>()
           .map(
             (Map<dynamic, dynamic> item) =>
-                AppUsageItem.fromMap(Map<String, dynamic>.from(item)),
+                AppUsageModel.fromMap(Map<String, dynamic>.from(item)),
           )
           .toList(),
       updatedAt: readDate(data['updatedAt']),
@@ -75,7 +129,8 @@ class ScreenTimeModel {
       'childId': childId,
       'date': date,
       'totalMinutes': totalMinutes,
-      'appUsage': appUsage.map((AppUsageItem item) => item.toMap()).toList(),
+      'dailyLimitMinutes': dailyLimitMinutes,
+      'appUsage': appUsage.map((AppUsageModel item) => item.toMap()).toList(),
       'updatedAt': FieldValue.serverTimestamp(),
       'source': source,
     };

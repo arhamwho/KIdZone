@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../../models/activity_model.dart';
@@ -15,96 +17,134 @@ import '../../widgets/activity_tile.dart';
 import '../../widgets/child_picker.dart';
 import '../../widgets/family_gate.dart';
 import '../../widgets/kid_card.dart';
+import '../../widgets/page_header.dart';
 import '../../widgets/primary_button.dart';
 import '../../widgets/status_views.dart';
 
 class ActivitySchedulerScreen extends StatelessWidget {
   const ActivitySchedulerScreen({super.key});
 
+  /// Space occupied by [RoleShell]'s floating navigation, plus a gap so the
+  /// FAB sits fully above it on any Android inset.
+  ///
+  /// The shell draws its bar over the body. [MediaQuery.padding] already
+  /// reports that overlap when `extendBody` is on, and the bar itself also
+  /// includes the system inset, so the reserve uses whichever is taller.
+  static double _shellNavReserve(BuildContext context) {
+    final double obstructed = MediaQuery.paddingOf(context).bottom;
+    final double viewBottom = MediaQuery.viewPaddingOf(context).bottom;
+    final double navHeight = NavigationBarTheme.of(context).height ?? 80;
+    const double shellBottomPad = 12;
+    // NavigationBar wraps itself in a SafeArea, so the painted bar is the
+    // theme height plus the system inset and the shell's bottom padding.
+    final double estimated = viewBottom + shellBottomPad + navHeight;
+    return math.max(obstructed, estimated) + AppSpacing.md;
+  }
+
+  void _openNewActivity(BuildContext context) {
+    if (FamilySession.instance.selectedChildId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please choose a child first.')),
+      );
+      return;
+    }
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (_) => const CreateActivitySheet(),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      children: <Widget>[
-        FamilyGate(
-          title: 'Plan',
-          tint: UserRole.parent.tint,
-          builder: (BuildContext context, FamilyScope scope) {
-            return Column(
-              children: <Widget>[
-                ChildPicker(
-                  children: scope.children,
-                  selectedId: scope.selectedChild?.uid,
-                  onSelected: FamilySession.instance.selectChild,
-                ),
-                const SizedBox(height: AppSpacing.lg),
-                Expanded(
-                  child: scope.selectedChild == null
-                      ? const MessageView(
-                          'Add a child to start planning activities.',
-                          icon: Icons.event_note_outlined,
-                        )
-                      : StreamBuilder<List<ActivityModel>>(
-                          stream: ActivityService.instance.watchChildActivities(
-                            familyId: scope.familyId,
-                            childId: scope.selectedChild!.uid,
-                          ),
-                          builder:
-                              (
-                                BuildContext context,
-                                AsyncSnapshot<List<ActivityModel>> snapshot,
-                              ) {
-                            if (snapshot.hasError) {
-                              return const MessageView(
-                                'Unable to load your activities.',
-                              );
-                            }
-                            final List<ActivityModel> items =
-                                snapshot.data ?? <ActivityModel>[];
-                            if (items.isEmpty) {
-                              return const MessageView(
-                                'No activities yet. Add one for this child.',
-                                icon: Icons.event_available_outlined,
-                              );
-                            }
-                            return ListView.builder(
-                              padding: const EdgeInsets.only(
-                                bottom: AppSpacing.huge * 2,
-                              ),
-                              itemCount: items.length,
-                              itemBuilder: (BuildContext context, int index) {
-                                return ActivityTile(activity: items[index]);
-                              },
-                            );
-                          },
+    return Scaffold(
+      backgroundColor: Colors.transparent,
+      floatingActionButtonLocation: const _RaisedEndFloat(10),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => _openNewActivity(context),
+        icon: const Icon(Icons.add_rounded),
+        label: const Text('New activity'),
+      ),
+      bottomNavigationBar: SizedBox(height: _shellNavReserve(context)),
+      body: FamilyGate(
+        title: '',
+        tint: UserRole.parent.tint,
+        builder: (BuildContext context, FamilyScope scope) {
+          return Column(
+            children: <Widget>[
+              const AppTopBar(title: 'Plan'),
+              ChildPicker(
+                children: scope.children,
+                selectedId: scope.selectedChild?.uid,
+                onSelected: FamilySession.instance.selectChild,
+              ),
+              const SizedBox(height: AppSpacing.lg),
+              Expanded(
+                child: scope.selectedChild == null
+                    ? const MessageView(
+                        'Add a child to start planning activities.',
+                        icon: Icons.event_note_outlined,
+                      )
+                    : StreamBuilder<List<ActivityModel>>(
+                        stream: ActivityService.instance.watchChildActivities(
+                          familyId: scope.familyId,
+                          childId: scope.selectedChild!.uid,
                         ),
-                ),
-              ],
-            );
-          },
-        ),
-        Positioned(
-          right: AppSpacing.lg,
-          bottom: AppSpacing.lg,
-          child: FloatingActionButton.extended(
-            onPressed: () {
-              if (FamilySession.instance.selectedChildId == null) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Please choose a child first.')),
-                );
-                return;
-              }
-              showModalBottomSheet<void>(
-                context: context,
-                isScrollControlled: true,
-                builder: (_) => const CreateActivitySheet(),
-              );
-            },
-            icon: const Icon(Icons.add_rounded),
-            label: const Text('New activity'),
-          ),
-        ),
-      ],
+                        builder:
+                            (
+                              BuildContext context,
+                              AsyncSnapshot<List<ActivityModel>> snapshot,
+                            ) {
+                              if (snapshot.hasError) {
+                                return const MessageView(
+                                  'Unable to load your activities.',
+                                );
+                              }
+                              final List<ActivityModel> items =
+                                  snapshot.data ?? <ActivityModel>[];
+                              if (items.isEmpty) {
+                                return const MessageView(
+                                  'No activities scheduled yet.',
+                                  icon: Icons.event_available_outlined,
+                                );
+                              }
+                              return ListView.builder(
+                                padding: const EdgeInsets.only(
+                                  bottom: AppSpacing.huge,
+                                ),
+                                itemCount: items.length,
+                                itemBuilder: (BuildContext context, int index) {
+                                  return ActivityTile(activity: items[index]);
+                                },
+                              );
+                            },
+                      ),
+              ),
+            ],
+          );
+        },
+      ),
     );
+  }
+}
+
+/// [FloatingActionButtonLocation.endFloat] raised by a fixed logical gap.
+///
+/// The base location already clears the shell navigation and system inset.
+/// [lift] adds a small amount of space so the button sits between that
+/// clearance and a larger offset.
+class _RaisedEndFloat extends FloatingActionButtonLocation {
+  const _RaisedEndFloat(this.lift);
+
+  final double lift;
+
+  @override
+  Offset getOffset(ScaffoldPrelayoutGeometry scaffoldGeometry) {
+    final Offset base = FloatingActionButtonLocation.endFloat.getOffset(
+      scaffoldGeometry,
+    );
+    return Offset(base.dx, base.dy - lift);
   }
 }
 
@@ -147,6 +187,29 @@ class _CreateActivitySheetState extends State<CreateActivitySheet> {
     }
     setState(() => _busy = true);
     try {
+      final bool? confirmed = await showDialog<bool>(
+        context: context,
+        builder: (BuildContext context) {
+          return AlertDialog(
+            title: const Text('Save this activity?'),
+            content: Text(_title.text.trim()),
+            actions: <Widget>[
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: const Text('Cancel'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                child: const Text('Save'),
+              ),
+            ],
+          );
+        },
+      );
+      if (confirmed != true) {
+        if (mounted) setState(() => _busy = false);
+        return;
+      }
       final String? uid = AuthService.instance.currentFirebaseUser?.uid;
       if (uid == null) {
         throw Exception();
@@ -156,7 +219,9 @@ class _CreateActivitySheetState extends State<CreateActivitySheet> {
       );
       final String? familyId = profile?.familyId;
       if (familyId == null) {
-        setState(() => _error = 'We couldn’t find your family. Please try again.');
+        setState(
+          () => _error = 'We couldn’t find your family. Please try again.',
+        );
         return;
       }
       await ActivityService.instance.createActivity(

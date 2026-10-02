@@ -10,6 +10,8 @@ class LocationModel {
     required this.longitude,
     required this.accuracy,
     required this.timestamp,
+    this.sharingEnabled = false,
+    this.source = 'device',
   });
 
   final String locationId;
@@ -18,6 +20,17 @@ class LocationModel {
   final double longitude;
   final double accuracy;
   final DateTime timestamp;
+  final bool sharingEnabled;
+  final String source;
+
+  bool get hasFix {
+    if (!latitude.isFinite || !longitude.isFinite) return false;
+    return latitude.abs() > 0.0001 || longitude.abs() > 0.0001;
+  }
+
+  bool get hasTimestamp => timestamp.year >= 2000;
+
+  bool get isDemo => source == 'demo';
 
   factory LocationModel.fromFirestore(
     DocumentSnapshot<Map<String, dynamic>> doc,
@@ -32,20 +45,23 @@ class LocationModel {
       latitude: (data['latitude'] as num?)?.toDouble() ?? 0,
       longitude: (data['longitude'] as num?)?.toDouble() ?? 0,
       accuracy: (data['accuracy'] as num?)?.toDouble() ?? 0,
-      timestamp: readDate(data['timestamp']) ?? DateTime.fromMillisecondsSinceEpoch(0),
+      timestamp:
+          readDate(data['timestamp']) ?? DateTime.fromMillisecondsSinceEpoch(0),
+      sharingEnabled: data['sharingEnabled'] as bool? ?? false,
+      source: data['source'] as String? ?? 'device',
     );
   }
 
-  Map<String, dynamic> toMap({required bool isCreate}) {
+  Map<String, dynamic> toMap() {
     return <String, dynamic>{
       'locationId': locationId,
       'childId': childId,
       'latitude': latitude,
       'longitude': longitude,
       'accuracy': accuracy,
-      'timestamp': isCreate
-          ? FieldValue.serverTimestamp()
-          : Timestamp.fromDate(timestamp),
+      'sharingEnabled': sharingEnabled,
+      'source': source,
+      'timestamp': FieldValue.serverTimestamp(),
     };
   }
 }

@@ -62,6 +62,17 @@ class Validators {
     return null;
   }
 
+  static String? money(String? value, {int min = 1, int max = 100000}) {
+    final String? emptyError = required(value, field: 'Amount');
+    if (emptyError != null) return emptyError;
+    final int? parsed = int.tryParse(value!.trim());
+    if (parsed == null) return 'Enter a whole rupee amount';
+    if (parsed < min || parsed > max) {
+      return 'Amount must be between ₹$min and ₹$max';
+    }
+    return null;
+  }
+
   static String? confirmPassword(String? value, String password) {
     final String? emptyError = required(value, field: 'Confirm password');
     if (emptyError != null) return emptyError;

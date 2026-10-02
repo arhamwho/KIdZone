@@ -29,6 +29,17 @@ class FamilySession extends ChangeNotifier {
     return children.first;
   }
 
+  void hydrate(List<ChildModel> children) {
+    if (children.isEmpty) {
+      _selectedChildId = null;
+      return;
+    }
+    if (_selectedChildId == null ||
+        children.every((ChildModel child) => child.uid != _selectedChildId)) {
+      _selectedChildId = children.first.uid;
+    }
+  }
+
   void syncWith(List<ChildModel> children) {
     if (children.isEmpty) {
       if (_selectedChildId != null) {

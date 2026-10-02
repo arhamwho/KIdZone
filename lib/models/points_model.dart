@@ -7,6 +7,9 @@ enum AchievementId {
   firstActivity,
   firstGame,
   hundredPoints,
+  fiveHundredPoints,
+  perfectQuiz,
+  fiveActivities,
   learningStar;
 
   String get firestoreValue => name;
@@ -15,6 +18,9 @@ enum AchievementId {
     AchievementId.firstActivity => 'First Activity',
     AchievementId.firstGame => 'First Game',
     AchievementId.hundredPoints => '100 Points',
+    AchievementId.fiveHundredPoints => '500 Points',
+    AchievementId.perfectQuiz => 'Perfect Quiz',
+    AchievementId.fiveActivities => '5 Activities Completed',
     AchievementId.learningStar => 'Learning Star',
   };
 
@@ -22,6 +28,9 @@ enum AchievementId {
     AchievementId.firstActivity => 'Finished your first planned activity.',
     AchievementId.firstGame => 'Played your first learning game.',
     AchievementId.hundredPoints => 'Reached 100 family points.',
+    AchievementId.fiveHundredPoints => 'Reached 500 family points.',
+    AchievementId.perfectQuiz => 'Got every answer right in a quiz.',
+    AchievementId.fiveActivities => 'Finished five planned activities.',
     AchievementId.learningStar => 'Completed every learning game.',
   };
 
@@ -29,6 +38,9 @@ enum AchievementId {
     AchievementId.firstActivity => Icons.task_alt_rounded,
     AchievementId.firstGame => Icons.extension_rounded,
     AchievementId.hundredPoints => Icons.stars_rounded,
+    AchievementId.fiveHundredPoints => Icons.military_tech_rounded,
+    AchievementId.perfectQuiz => Icons.verified_rounded,
+    AchievementId.fiveActivities => Icons.playlist_add_check_rounded,
     AchievementId.learningStar => Icons.auto_awesome_rounded,
   };
 
@@ -86,5 +98,6 @@ class PointsModel {
     };
   }
 
-  static int levelFor(int points) => 1 + (points ~/ 50);
+  /// 0–99 = Level 1, 100–199 = Level 2, and so on.
+  static int levelFor(int points) => 1 + (points < 0 ? 0 : points ~/ 100);
 }

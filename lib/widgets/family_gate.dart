@@ -8,7 +8,6 @@ import '../services/auth_service.dart';
 import '../services/family_session.dart';
 import '../services/firestore_service.dart';
 import 'app_page.dart';
-import 'logout_button.dart';
 import 'status_views.dart';
 
 class FamilyScope {
@@ -32,13 +31,17 @@ class FamilyGate extends StatelessWidget {
     required this.builder,
     this.tint,
     this.requireChild = false,
-    this.actions = const <Widget>[LogoutButton()],
+    this.actions = const <Widget>[],
+    this.constrainWidth = true,
+    this.safeArea = true,
   });
 
   final String title;
   final Color? tint;
   final bool requireChild;
   final List<Widget> actions;
+  final bool constrainWidth;
+  final bool safeArea;
   final Widget Function(BuildContext context, FamilyScope scope) builder;
 
   @override
@@ -51,38 +54,70 @@ class FamilyGate extends StatelessWidget {
         title: title,
         tint: tint,
         actions: actions,
+        constrainWidth: constrainWidth,
+        safeArea: safeArea,
         child: const MessageView('Sign in to see your family.'),
       );
     }
 
-    return AppPage(
-      title: title,
-      tint: tint,
-      actions: actions,
-      child: StreamBuilder<UserModel?>(
-        stream: FirestoreService.instance.watchUserProfile(uid),
-        builder: (BuildContext context, AsyncSnapshot<UserModel?> userSnap) {
-          if (userSnap.hasError) {
-            return const MessageView('Something went wrong. Please try again.');
-          }
-          if (!userSnap.hasData &&
-              userSnap.connectionState == ConnectionState.waiting) {
-            return const LoadingView();
-          }
-          final UserModel? user = userSnap.data;
-          if (user == null) {
-            return const MessageView(
+    return StreamBuilder<UserModel?>(
+      stream: FirestoreService.instance.watchUserProfile(uid),
+      builder: (BuildContext context, AsyncSnapshot<UserModel?> userSnap) {
+        if (userSnap.hasError) {
+          return AppPage(
+            title: title,
+            tint: tint,
+            actions: actions,
+            constrainWidth: constrainWidth,
+            safeArea: safeArea,
+            child: const MessageView('Something went wrong. Please try again.'),
+          );
+        }
+        if (!userSnap.hasData &&
+            userSnap.connectionState == ConnectionState.waiting) {
+          return AppPage(
+            title: title,
+            tint: tint,
+            actions: actions,
+            constrainWidth: constrainWidth,
+            safeArea: safeArea,
+            child: const LoadingView(),
+          );
+        }
+        final UserModel? user = userSnap.data;
+        if (user == null) {
+          return AppPage(
+            title: title,
+            tint: tint,
+            actions: actions,
+            constrainWidth: constrainWidth,
+            safeArea: safeArea,
+            child: const MessageView(
               'We couldn’t find your profile. Please try again.',
-            );
-          }
-          final String? familyId = user.familyId;
-          if (familyId == null || familyId.isEmpty) {
-            return const MessageView(
+            ),
+          );
+        }
+        final String? familyId = user.familyId;
+        if (familyId == null || familyId.isEmpty) {
+          return AppPage(
+            title: title,
+            tint: tint ?? user.role.tint,
+            actions: actions,
+            constrainWidth: constrainWidth,
+            safeArea: safeArea,
+            child: const MessageView(
               'We couldn’t find your family. Please try again.',
-            );
-          }
+            ),
+          );
+        }
 
-          return StreamBuilder<List<ChildModel>>(
+        return AppPage(
+          title: title,
+          tint: tint ?? user.role.tint,
+          actions: actions,
+          constrainWidth: constrainWidth,
+          safeArea: safeArea,
+          child: StreamBuilder<List<ChildModel>>(
             stream: FirestoreService.instance.watchChildren(familyId),
             builder:
                 (BuildContext context, AsyncSnapshot<List<ChildModel>> kids) {
@@ -92,6 +127,7 @@ class FamilyGate extends StatelessWidget {
                 );
               }
               final List<ChildModel> children = kids.data ?? <ChildModel>[];
+              FamilySession.instance.hydrate(children);
               WidgetsBinding.instance.addPostFrameCallback((_) {
                 FamilySession.instance.syncWith(children);
               });
@@ -135,9 +171,9 @@ class FamilyGate extends StatelessWidget {
                 },
               );
             },
-          );
-        },
-      ),
+          ),
+        );
+      },
     );
   }
 }

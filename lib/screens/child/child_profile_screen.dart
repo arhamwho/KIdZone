@@ -7,6 +7,7 @@ import '../../services/screen_time_service.dart';
 import '../../theme/app_spacing.dart';
 import '../../widgets/family_gate.dart';
 import '../../widgets/kid_card.dart';
+import '../../widgets/page_header.dart';
 import '../../widgets/primary_button.dart';
 
 class ChildProfileScreen extends StatefulWidget {
@@ -22,17 +23,41 @@ class _ChildProfileScreenState extends State<ChildProfileScreen>
   String? _locationNote;
   String? _usageNote;
   ScreenTimeAccess _access = ScreenTimeAccess.unavailable;
+  FamilyScope? _scope;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _refreshAccess();
+    });
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _refreshAccess();
+      final FamilyScope? scope = _scope;
+      if (scope != null && scope.user.locationSharingEnabled) {
+        LocationService.instance.startSharing(
+          familyId: scope.familyId,
+          childId: scope.user.uid,
+        );
+      }
+    }
+  }
+
+  Future<void> _refreshAccess() async {
+    final ScreenTimeAccess access = await ScreenTimeService.instance
+        .checkPermission();
+    if (mounted) setState(() => _access = access);
   }
 
   Future<void> _setSharing({
@@ -44,21 +69,39 @@ class _ChildProfileScreenState extends State<ChildProfileScreen>
       _locationNote = null;
     });
     try {
-      await FirestoreService.instance.updateUserProfile(
-        scope.user.uid,
-        locationSharingEnabled: enabled,
-      );
       if (enabled) {
         final LocationShareState state = await LocationService.instance
             .startSharing(familyId: scope.familyId, childId: scope.user.uid);
+        if (state != LocationShareState.sharing &&
+            state != LocationShareState.ready) {
+          await FirestoreService.instance.updateUserProfile(
+            scope.user.uid,
+            locationSharingEnabled: false,
+          );
+          setState(() => _locationNote = _locationMessage(state));
+          return;
+        }
+        await FirestoreService.instance.updateUserProfile(
+          scope.user.uid,
+          locationSharingEnabled: true,
+        );
         setState(() => _locationNote = _locationMessage(state));
       } else {
         await LocationService.instance.stopSharing();
+        await LocationService.instance.markSharingOff(
+          familyId: scope.familyId,
+          childId: scope.user.uid,
+        );
+        await FirestoreService.instance.updateUserProfile(
+          scope.user.uid,
+          locationSharingEnabled: false,
+        );
         setState(() => _locationNote = 'Location sharing is off.');
       }
     } catch (_) {
       setState(
-        () => _locationNote = 'Location permission is required.',
+        () => _locationNote =
+            'Location permission is required to share your location.',
       );
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -69,12 +112,11 @@ class _ChildProfileScreenState extends State<ChildProfileScreen>
     return switch (state) {
       LocationShareState.sharing || LocationShareState.ready =>
         'Live location is on while KidZone is open.',
-      LocationShareState.permissionDenied =>
-        'Location permission is required.',
+      LocationShareState.permissionDenied ||
       LocationShareState.permissionPermanentlyDenied =>
-        'Location permission is turned off for this app. You can enable it in Settings.',
+        'Location permission is required to share your location.',
       LocationShareState.serviceDisabled =>
-        'Turn on Location services to share your place.',
+        'Turn on Location Services to continue.',
       LocationShareState.unavailable =>
         'Location is unavailable on this device.',
     };
@@ -90,14 +132,19 @@ class _ChildProfileScreenState extends State<ChildProfileScreen>
           .refreshFromDevice(
             familyId: scope.familyId,
             childId: scope.user.uid,
+            dailyLimitMinutes: scope.user.dailyScreenLimitMinutes,
+            forceWrite: true,
           );
       setState(() {
         _access = snapshot.access;
         _usageNote = switch (snapshot.access) {
-          ScreenTimeAccess.granted => 'Today’s usage was updated.',
-          ScreenTimeAccess.missing => 'Screen-time permission is required.',
+          ScreenTimeAccess.granted => snapshot.available
+              ? 'Today’s usage was updated.'
+              : 'Screen-time data is unavailable on this device.',
+          ScreenTimeAccess.missing =>
+            'Screen-time access is not enabled. KidZone needs Usage Access permission to calculate today’s screen time.',
           ScreenTimeAccess.unavailable =>
-            'Usage data is unavailable on this device.',
+            'Screen-time data is unavailable on this device.',
         };
       });
     } catch (_) {
@@ -112,19 +159,18 @@ class _ChildProfileScreenState extends State<ChildProfileScreen>
   @override
   Widget build(BuildContext context) {
     return FamilyGate(
-      title: 'Profile',
+      title: '',
       tint: UserRole.child.tint,
       builder: (BuildContext context, FamilyScope scope) {
+        _scope = scope;
         return ListView(
+          padding: const EdgeInsets.only(bottom: AppSpacing.navClearance),
           children: <Widget>[
-            KidCard(
-              child: ListTile(
-                contentPadding: EdgeInsets.zero,
-                title: Text(scope.user.name),
-                subtitle: Text(scope.user.email),
-              ),
+            ProfileHeader(
+              name: scope.user.name,
+              caption: scope.user.email,
             ),
-            const SizedBox(height: AppSpacing.lg),
+            const SizedBox(height: AppSpacing.md),
             KidCard(
               child: SwitchListTile(
                 contentPadding: EdgeInsets.zero,
@@ -150,23 +196,31 @@ class _ChildProfileScreenState extends State<ChildProfileScreen>
                   const SizedBox(height: AppSpacing.sm),
                   Text(
                     _usageNote ??
-                        'Share today’s usage so your parent can see a friendly summary.',
+                        (_access == ScreenTimeAccess.missing
+                            ? 'Screen-time access is not enabled. KidZone needs Usage Access permission to calculate today’s screen time.'
+                            : _access == ScreenTimeAccess.unavailable
+                            ? 'Screen-time data is unavailable on this device.'
+                            : 'Share today’s usage so your parent can see a friendly summary.'),
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
                   const SizedBox(height: AppSpacing.md),
                   PrimaryButton(
-                    label: 'Update today’s usage',
+                    label: _access == ScreenTimeAccess.missing
+                        ? 'Enable Screen Time'
+                        : 'Update today’s usage',
                     compact: true,
                     expand: true,
-                    onPressed: _busy ? null : () => _refreshUsage(scope),
+                    onPressed: _busy
+                        ? null
+                        : () async {
+                            if (_access == ScreenTimeAccess.missing) {
+                              await ScreenTimeService.instance
+                                  .openPermissionSettings();
+                              return;
+                            }
+                            await _refreshUsage(scope);
+                          },
                   ),
-                  if (_access == ScreenTimeAccess.missing) ...<Widget>[
-                    const SizedBox(height: AppSpacing.sm),
-                    TextButton(
-                      onPressed: ScreenTimeService.instance.openUsageSettings,
-                      child: const Text('Open usage access settings'),
-                    ),
-                  ],
                 ],
               ),
             ),

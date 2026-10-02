@@ -12,10 +12,11 @@ class LoadingView extends StatelessWidget {
 }
 
 class MessageView extends StatelessWidget {
-  const MessageView(this.text, {super.key, this.icon});
+  const MessageView(this.text, {super.key, this.icon, this.onRetry});
 
   final String text;
   final IconData? icon;
+  final VoidCallback? onRetry;
 
   @override
   Widget build(BuildContext context) {
@@ -31,6 +32,10 @@ class MessageView extends StatelessWidget {
               const SizedBox(height: AppSpacing.md),
             ],
             Text(text, textAlign: TextAlign.center, style: theme.textTheme.bodyMedium),
+            if (onRetry != null) ...<Widget>[
+              const SizedBox(height: AppSpacing.md),
+              TextButton(onPressed: onRetry, child: const Text('Try again')),
+            ],
           ],
         ),
       ),

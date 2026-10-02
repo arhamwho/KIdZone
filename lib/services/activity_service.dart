@@ -86,21 +86,67 @@ class ActivityService {
     required bool completed,
   }) async {
     try {
-      await _db.activities(familyId).doc(activity.activityId).update(
-        <String, dynamic>{'completed': completed},
-      );
-      if (completed && !activity.completed) {
+      final DocumentReference<Map<String, dynamic>> actRef = _db
+          .activities(familyId)
+          .doc(activity.activityId);
+      bool awardedNow = false;
+      await FirebaseFirestore.instance.runTransaction((
+        Transaction transaction,
+      ) async {
+        awardedNow = false;
+        final DocumentSnapshot<Map<String, dynamic>> snap = await transaction
+            .get(actRef);
+        if (!snap.exists) return;
+        final ActivityModel current = ActivityModel.fromFirestore(snap);
+        final Map<String, dynamic> patch = <String, dynamic>{
+          'completed': completed,
+        };
+        if (completed) {
+          patch['completedAt'] = FieldValue.serverTimestamp();
+          if (!current.pointsAwarded) {
+            patch['pointsAwarded'] = true;
+            awardedNow = true;
+          }
+        }
+        transaction.update(actRef, patch);
+      });
+      if (awardedNow) {
         await _games.awardPoints(
           familyId: familyId,
           childId: activity.childId,
           amount: 10,
           unlock: AchievementId.firstActivity,
         );
+        await _maybeUnlockFiveActivities(
+          familyId: familyId,
+          childId: activity.childId,
+        );
       }
     } catch (error) {
       if (error is FirestoreException) rethrow;
       throw FirestoreException(friendlyFirestoreMessage(error));
     }
+  }
+
+  Future<void> _maybeUnlockFiveActivities({
+    required String familyId,
+    required String childId,
+  }) async {
+    final QuerySnapshot<Map<String, dynamic>> snapshot = await _db
+        .activities(familyId)
+        .where('childId', isEqualTo: childId)
+        .get();
+    final int completedCount = snapshot.docs
+        .map(ActivityModel.fromFirestore)
+        .where((ActivityModel item) => item.completed)
+        .length;
+    if (completedCount < 5) return;
+    await _games.awardPoints(
+      familyId: familyId,
+      childId: childId,
+      amount: 0,
+      unlock: AchievementId.fiveActivities,
+    );
   }
 
   int _compare(ActivityModel a, ActivityModel b) {

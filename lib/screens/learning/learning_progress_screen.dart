@@ -2,15 +2,16 @@ import 'package:flutter/material.dart';
 
 import '../../data/quiz_catalog.dart';
 import '../../models/game_progress_model.dart';
-import '../../models/learning_game_model.dart';
 import '../../models/points_model.dart';
 import '../../models/user_role.dart';
 import '../../services/family_session.dart';
 import '../../services/game_service.dart';
+import '../../theme/app_colors.dart';
 import '../../theme/app_spacing.dart';
 import '../../widgets/child_picker.dart';
 import '../../widgets/family_gate.dart';
 import '../../widgets/kid_card.dart';
+import '../../widgets/page_header.dart';
 import '../../widgets/status_views.dart';
 
 class LearningProgressScreen extends StatelessWidget {
@@ -19,24 +20,39 @@ class LearningProgressScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return FamilyGate(
-      title: 'Learning',
+      title: '',
       tint: UserRole.parent.tint,
       builder: (BuildContext context, FamilyScope scope) {
         if (scope.user.role == UserRole.child) {
-          return _ProgressBody(
-            familyId: scope.familyId,
-            childId: scope.user.uid,
-            childName: scope.user.name,
+          return Column(
+            children: <Widget>[
+              const AppTopBar(title: 'Learning'),
+              Expanded(
+                child: _ProgressBody(
+                  familyId: scope.familyId,
+                  childId: scope.user.uid,
+                  childName: scope.user.name,
+                ),
+              ),
+            ],
           );
         }
         if (scope.selectedChild == null) {
-          return const MessageView(
-            'Add a child to see learning progress.',
-            icon: Icons.extension_outlined,
+          return const Column(
+            children: <Widget>[
+              AppTopBar(title: 'Learning'),
+              Expanded(
+                child: MessageView(
+                  'Add a child to see learning progress.',
+                  icon: Icons.extension_outlined,
+                ),
+              ),
+            ],
           );
         }
         return Column(
           children: <Widget>[
+            const AppTopBar(title: 'Learning'),
             ChildPicker(
               children: scope.children,
               selectedId: scope.selectedChild?.uid,
@@ -96,29 +112,46 @@ class _ProgressBody extends StatelessWidget {
                   in gamesSnap.data ?? <GameProgressModel>[])
                 item.gameId: item,
             };
+            final int gamesDone = byId.values
+                .where((GameProgressModel item) => item.completed)
+                .length;
             return ListView(
+              padding: const EdgeInsets.only(bottom: AppSpacing.navClearance),
               children: <Widget>[
-                KidCard(
-                  child: ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    title: Text(childName),
-                    subtitle: Text(
-                      '${points.points} points · Level ${points.level}',
+                InsightCard(
+                  tiles: <InsightTile>[
+                    InsightTile(
+                      icon: Icons.star_rounded,
+                      value: '${points.points}',
+                      label: 'Level ${points.level}',
+                      color: AppColors.tileOrange,
                     ),
-                  ),
+                    InsightTile(
+                      icon: Icons.extension_rounded,
+                      value: '$gamesDone',
+                      label: 'games done',
+                      color: AppColors.tilePurple,
+                    ),
+                  ],
                 ),
-                const SizedBox(height: AppSpacing.lg),
-                for (final LearningGameModel game in quizCatalog)
+                const SizedBox(height: AppSpacing.xl),
+                for (int i = 0; i < quizCatalog.length; i++)
                   Padding(
                     padding: const EdgeInsets.only(bottom: AppSpacing.md),
                     child: KidCard(
                       child: ListTile(
                         contentPadding: EdgeInsets.zero,
-                        leading: Icon(game.icon),
-                        title: Text(game.title),
+                        leading: CircleAvatar(
+                          backgroundColor: AppColors.categoryAt(i),
+                          child: Icon(
+                            quizCatalog[i].icon,
+                            color: Colors.white,
+                          ),
+                        ),
+                        title: Text(quizCatalog[i].title),
                         subtitle: Text(
-                          byId[game.gameId]?.completed == true
-                              ? 'Best ${byId[game.gameId]!.bestScore}/${game.questions.length}'
+                          byId[quizCatalog[i].gameId]?.completed == true
+                              ? 'Latest ${byId[quizCatalog[i].gameId]!.score}/${quizCatalog[i].questions.length} · Best ${byId[quizCatalog[i].gameId]!.bestScore}/${quizCatalog[i].questions.length}'
                               : 'Not played yet',
                         ),
                       ),
